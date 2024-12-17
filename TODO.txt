@@ -1,0 +1,17 @@
+Build plan:
+  integrate greenworks and try launching a packaged build from Steam, does overlay work, etc?
+  exclude .map files (at least from ASAR)
+
+Don't get devtools on ctrl+shift+I if menu is hidden
+  - call BrowserWindow.webContents.openDevTools() ourselves, I guess
+Need F11 and Alt+Enter hotkeys for fullscreen toggle
+Remember fullscreen state between launches
+Crash report is putting the product= and version= values on the query parameters instead of part of the post body
+  Probably easier to fix simple-breakpad-server for this
+Renderer crash is not exiting the app gracefully / showing any status
+Icons: https://www.electronforge.io/guides/create-and-add-icons
+Alt+F4 hotkey is not going through
+Add Alt+Enter hotkey
+
+Probably won't address:
+  Server does not reload upon changes
