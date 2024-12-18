@@ -1,4 +1,3 @@
-const path = require('path');
 const exec = require('./exec.js');
 
 function copy(job, done) {
@@ -56,18 +55,18 @@ module.exports = function (config, gb) {
       'client_dev_outputs:client/index.html',
       'server_dev_outputs:electron/**',
       'server_dev_outputs:!electron/forge.config.js*',
+      'electron/greenworks/lib/**',
     ],
     target: 'electron',
     type: gb.SINGLE,
-    func: function (job, done) {
-      copy(job, done);
-    },
+    func: copy,
   });
   gb.task({
     name: 'electron-to-root',
     input: [
       'electron/package*.json',
       'electron/forge.config.js',
+      'electron/steam_appid.txt',
     ],
     target: 'electron',
     type: gb.SINGLE,
@@ -123,9 +122,8 @@ module.exports = function (config, gb) {
     ],
     ...exec(forge([
       'start',
-      // '--app-path', 'dist/game/build.electron',
       // '--enable-logging',
-      // '--inspect-electron',
+      '--inspect-electron',
       // '--inspect-brk-electron',
     ])),
   });

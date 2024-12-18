@@ -1,3 +1,4 @@
+/* eslint prefer-template:off */
 const path = require('node:path');
 const {
   BrowserWindow,
@@ -7,6 +8,8 @@ const {
   ipcMain,
 } = require('electron/main');
 
+app.commandLine.appendSwitch('--in-process-gpu', '--disable-direct-composition');
+
 crashReporter.start({
   // productName: 'todo', // defaults to app.name, is that appropriate?
   submitURL: 'http://error.staging.dashingstrike.com/crashreports',
@@ -15,6 +18,94 @@ crashReporter.start({
     foo: 'bar',
   },
 });
+
+function greenworksTest() {
+  let greenworks;
+  try {
+    // eslint-disable-next-line global-require, import/order
+    greenworks = require('./greenworks/greenworks.js');
+  } catch (e) {
+    console.log(e);
+    return;
+  }
+  function log(msg) {
+    console.log('[GREENWORKS]', msg);
+  }
+
+  try {
+    if (!greenworks.init()) {
+      log('Error on initializing steam API.');
+    } else {
+      log('Steam API initialized successfully.');
+
+      log('Cloud enabled: ' + greenworks.isCloudEnabled());
+      log('Cloud enabled for user: ' + greenworks.isCloudEnabledForUser());
+
+      greenworks.on('steam-servers-connected', function () {
+        log('connected');
+      });
+      greenworks.on('steam-servers-disconnected', function () {
+        log('disconnected');
+      });
+      greenworks.on('steam-server-connect-failure', function () {
+        log('connected failure');
+      });
+      greenworks.on('steam-shutdown', function () {
+        log('shutdown');
+      });
+
+      // greenworks.saveTextToFile('test_file.txt', 'test_content',
+      //   function () {
+      //     log('Save text to file successfully');
+      //   },
+      //   function (err) {
+      //     log('Failed on saving text to file: ' + err);
+      //   });
+
+      // greenworks.readTextFromFile('test_file.txt', function (message) {
+      //   log('Read text from file successfully.');
+      // }, function (err) {
+      //   log('Failed on reading text from file: ' + err);
+      // });
+
+      greenworks.getCloudQuota(
+        function (a, b) {
+          log('Cloud quota: ' + a + ',' + b);
+        },
+        function (err) {
+          log('Failed on getting cloud quota: ' + err);
+        });
+      // The ACH_WIN_ONE_GAME achievement is available for the sample (id:480) game
+      // greenworks.activateAchievement('ACH_WIN_ONE_GAME',
+      //   function () {
+      //     log('Activating achievement successfully');
+      //   },
+      //   function (err) {
+      //     log('Failed on activating achievement: ' + err);
+      //   });
+
+      greenworks.getNumberOfPlayers(
+        function (a) {
+          log('Number of players ' + a);
+        },
+        function (err) {
+          log('Failed on getting number of players: ' + err);
+        });
+
+      log('Numer of friends: ' +
+          greenworks.getFriendCount(greenworks.FriendFlags.Immediate));
+      let friends = greenworks.getFriends(greenworks.FriendFlags.Immediate);
+      let friends_names = [];
+      for (let i = 0; i < friends.length; ++i) {
+        friends_names.push(friends[i].getPersonaName());
+      }
+      log('Friends: [' + friends_names.join(',') + ']');
+    }
+  } catch (e) {
+    console.log(e);
+  }
+}
+
 
 let win;
 const createWindow = () => {
@@ -40,6 +131,7 @@ const createWindow = () => {
   win.setAspectRatio(1920/1080);
   win.removeMenu(); // Maybe better than Menu.setApplicationMenu on Mac?
   win.loadFile(path.join(__dirname, '../client/index.html'));
+  win.webContents.toggleDevTools(); // TODO: only in dev mode
 
   win.webContents.on('before-input-event', function (unused, input) {
     if (input.type === 'keyDown' && (
@@ -53,6 +145,7 @@ const createWindow = () => {
 };
 
 app.whenReady().then(() => {
+  greenworksTest();
   ipcMain.handle('ping', () => 'pong');
   ipcMain.handle('fullscreen-toggle', function () {
     win.setFullScreen(!win.isFullScreen());
