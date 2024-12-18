@@ -1,19 +1,9 @@
-const { contextBridge, ipcRenderer } = require('electron');
+import { contextBridge, ipcRenderer } from 'electron';
 
-window.addEventListener('DOMContentLoaded', () => {
-  function replaceText(selector, text) {
-    const element = document.getElementById(selector);
-    if (element) {
-      element.innerText = text;
-    }
-  }
+// window.addEventListener('DOMContentLoaded', () => {
+//   const element = document.getElementById(selector);
+// });
 
-  for (const dependency of ['chrome', 'node', 'electron']) {
-    replaceText(`${dependency}-version`, process.versions[dependency]);
-  }
-});
-
-// Other method
 contextBridge.exposeInMainWorld('versions', {
   node: () => process.versions.node,
   chrome: () => process.versions.chrome,
