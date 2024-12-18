@@ -19,6 +19,16 @@ export function getStoragePrefix(): string {
   return storage_prefix;
 }
 
+export type StorageStore = {
+  test(key: string): boolean;
+  get(key: string): string | undefined;
+  set(key: string, value: undefined | string): void;
+};
+let external_store: StorageStore | null = null;
+export function localStorageAddExternalStore(store: StorageStore): void {
+  external_store = store;
+}
+
 let lsd = (function () {
   try {
     localStorage.setItem('test', 'test');
@@ -34,8 +44,13 @@ let lsd_overlay: Partial<Record<string, string>> = {};
 
 export function localStorageGet(key: string): string | undefined {
   assert(is_set);
-  key = `${storage_prefix}_${key}`;
-  let ret: string | null | undefined = lsd_overlay[key] || (lsd && lsd.getItem(key));
+  let ret: string | null | undefined;
+  if (external_store && external_store.test(key)) {
+    ret = external_store.get(key);
+  } else {
+    key = `${storage_prefix}_${key}`;
+    ret = lsd_overlay[key] || (lsd && lsd.getItem(key));
+  }
   if (ret === 'undefined') {
     ret = undefined;
   } else if (ret === null) {
@@ -44,10 +59,17 @@ export function localStorageGet(key: string): string | undefined {
   return ret;
 }
 
-export function localStorageSet(key: string, value: unknown): void {
+export function localStorageSet(key: string, value: string | null | undefined): void {
   assert(is_set);
+  if (value === null) {
+    value = undefined;
+  }
+  if (external_store && external_store.test(key)) {
+    external_store.set(key, value);
+    return;
+  }
   key = `${storage_prefix}_${key}`;
-  if (value === undefined || value === null) {
+  if (value === undefined) {
     if (lsd) {
       lsd.removeItem(key);
     }

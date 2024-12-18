@@ -1,4 +1,35 @@
-Remember fullscreen state between launches
+Local storage plan:
+  Next step:
+    Handle files through external hook / electron storage
+      localStorageSet('level3.b', 'raw text') => files/level3.b.txt
+
+  Want JS-app-driven local storage access which is flat files (e.g. for level saves to be easily cloud-sync-able)
+    Filter on local_storage module that uses a different backing store
+      filter needs to allow:
+        settings.foo, settings.bar -> all into a single main-backed object settings-user.json
+        settings.baz, settings.foobar -> all into a single main-backed object settings-device.json
+        level* -> into individual files
+      scan and load all in main thread, send once loaded, then keep a sync API in renderer
+      for QP2A: we'll want 2 files per solution, a code.txt file and a stats.json
+      also a single per-user-settings.json for any settings which should be persisted across devices
+      and probably want all other per-device-settings saved to a .json for easy inspecting/debugging anyway?
+  Want electron-main-driven simple .json settings for fullscreen (and resolution?)
+    can be the same per-device-settings as above
+  In dev, these need to persist across electron-start (fine?) and electron-package (tricky?, maybe doesn't matter?) and build-clean
+    Location:
+      dev:electron-start
+        <projectroot>/data_store
+      dev:electron-package
+        probably fine to be either, if it's production, it'll work like a fresh install each time
+      production:
+        <exeroot>/user
+  Structure:
+    user/settings-user.json
+    user/settings-device.json // not cloud-synced
+    user/files/level1.txt
+    user/files/level1.json
+
+Command line option to load / not load Steam
 Crash report is putting the product= and version= values on the query parameters instead of part of the post body
   Probably easier to fix simple-breakpad-server for this
 Get a clean flow from client code to greenworks working - https://stackoverflow.com/questions/44391448/electron-require-is-not-defined

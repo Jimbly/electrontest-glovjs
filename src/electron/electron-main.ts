@@ -6,6 +6,12 @@ import {
   app,
   ipcMain,
 } from 'electron/main';
+import {
+  electronStorageGetJSON,
+  electronStorageInit,
+  electronStorageSetJSON,
+  electronStorageWhenReady
+} from './electron_storage-main';
 import { greenworksTest } from './steam';
 
 app.commandLine.appendSwitch('--in-process-gpu', '--disable-direct-composition');
@@ -19,13 +25,24 @@ crashReporter.start({
   },
 });
 
+electronStorageInit();
+
 let win: BrowserWindow;
 
-function toggleFullScreen(): void {
-  win.setFullScreen(!win.isFullScreen());
+export function mainWindow(): BrowserWindow {
+  return win;
 }
+
+function toggleFullScreen(): void {
+  let new_fullscreen = !win.isFullScreen();
+  win.setFullScreen(new_fullscreen);
+  electronStorageSetJSON('settings-device.json', 'fullscreen', new_fullscreen);
+}
+
 function createWindow(): void {
   // let production_mode = app.isPackaged;
+  let default_fullscreen = false; // TODO: default to this in production mode
+  let fullscreen = electronStorageGetJSON('settings-device.json', 'fullscreen', default_fullscreen);
   win = new BrowserWindow({
     width: 1280,
     height: 720,
@@ -39,7 +56,7 @@ function createWindow(): void {
       // allowRunningInsecureContent: true, // maybe?
       // devTools: false, // TODO: default to this in production mode
     },
-    // fullscreen: true, TODO: default to this in production mode
+    fullscreen,
     // Reasonable to try:
     // titleBarStyle: 'hidden',
     // titleBarOverlay: true,
@@ -47,7 +64,7 @@ function createWindow(): void {
   win.setAspectRatio(1920/1080);
   win.removeMenu(); // Maybe better than Menu.setApplicationMenu on Mac?
   win.loadFile(path.join(__dirname, '../client/index.html'));
-  // win.webContents.toggleDevTools(); // TODO: only in dev mode
+  win.webContents.openDevTools(); // TODO: only in dev mode
 
   win.webContents.on('before-input-event', function (unused, input) {
     if (input.type === 'keyDown') {
@@ -70,26 +87,28 @@ function createWindow(): void {
   });
 }
 
-app.whenReady().then(() => {
-  greenworksTest();
-  ipcMain.handle('ping', () => 'pong');
-  ipcMain.handle('fullscreen-toggle', toggleFullScreen);
-  ipcMain.handle('open-devtools', function () {
-    win.webContents.openDevTools();
-  });
-  ipcMain.handle('crash-main', process.crash.bind(process));
-  // Menu.setApplicationMenu(null);
-  createWindow();
+app.whenReady().then(function () {
+  electronStorageWhenReady(function () {
+    greenworksTest();
+    ipcMain.handle('ping', () => 'pong');
+    ipcMain.handle('fullscreen-toggle', toggleFullScreen);
+    ipcMain.handle('open-devtools', function () {
+      win.webContents.openDevTools();
+    });
+    ipcMain.handle('crash-main', process.crash.bind(process));
+    // Menu.setApplicationMenu(null);
+    createWindow();
 
-  app.on('activate', () => {
-    // On Mac OS, create a window if we don't have one but are still running, I guess?
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    }
+    app.on('activate', function () {
+      // On Mac OS, create a window if we don't have one but are still running, I guess?
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow();
+      }
+    });
   });
 });
 
-app.on('window-all-closed', () => {
+app.on('window-all-closed', function () {
   //if (process.platform !== 'darwin')
   app.quit();
 });
