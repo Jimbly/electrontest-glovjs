@@ -106,9 +106,12 @@ function greenworksTest() {
   }
 }
 
-
 let win;
-const createWindow = () => {
+
+function toggleFullScreen() {
+  win.setFullScreen(!win.isFullScreen());
+}
+function createWindow() {
   // let production_mode = app.isPackaged;
   win = new BrowserWindow({
     width: 1280,
@@ -131,25 +134,33 @@ const createWindow = () => {
   win.setAspectRatio(1920/1080);
   win.removeMenu(); // Maybe better than Menu.setApplicationMenu on Mac?
   win.loadFile(path.join(__dirname, '../client/index.html'));
-  win.webContents.toggleDevTools(); // TODO: only in dev mode
+  // win.webContents.toggleDevTools(); // TODO: only in dev mode
 
   win.webContents.on('before-input-event', function (unused, input) {
-    if (input.type === 'keyDown' && (
-      input.key === 'F12' ||
-      (input.ctrl && input.shift && input.code === 'KeyI') ||
-      (input.meta && input.alt && input.code === 'KeyI')
-    )) {
-      win.webContents.toggleDevTools();
+    if (input.type === 'keyDown') {
+      // console.log('!!!!', input);
+      let key = input.key.toUpperCase();
+      // TODO: only in dev mode or with command argument, or maybe above logic handles that?
+      if (key === 'F12' ||
+        (input.control && input.shift && key === 'I') ||
+        (input.meta && input.alt && key === 'I')
+      ) {
+        win.webContents.toggleDevTools();
+      }
+      if (
+        !input.shift && !input.control && input.alt && key === 'ENTER' ||
+        !input.shift && !input.control && !input.alt && key === 'F11'
+      ) {
+        toggleFullScreen();
+      }
     }
   });
-};
+}
 
 app.whenReady().then(() => {
   greenworksTest();
   ipcMain.handle('ping', () => 'pong');
-  ipcMain.handle('fullscreen-toggle', function () {
-    win.setFullScreen(!win.isFullScreen());
-  });
+  ipcMain.handle('fullscreen-toggle', toggleFullScreen);
   ipcMain.handle('open-devtools', function () {
     win.webContents.openDevTools();
   });

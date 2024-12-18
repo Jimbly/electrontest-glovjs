@@ -1,7 +1,15 @@
-Need F11 and Alt+Enter hotkeys for fullscreen toggle
+Can electron-main be TypeScript?
 Remember fullscreen state between launches
 Crash report is putting the product= and version= values on the query parameters instead of part of the post body
   Probably easier to fix simple-breakpad-server for this
+Get a clean flow from client code to greenworks working - https://stackoverflow.com/questions/44391448/electron-require-is-not-defined
+Get production build task working
+  Any way to have only a single npm install folder?  How big? Big!
+    Special Forge config flow that simply replaces files in the after copy step or something?
+  Will _also_ need a demo build task, or can Demos ask Steam if they're the demo / check if they're owned?
+Add a steam/electron platform if we need some special behavior?
+  Probably we just have a "isSteam()" run-time query?
+Get local storage writing certain entries to local disk
 Renderer crash is not exiting the app gracefully / showing any status
 Icons: https://www.electronforge.io/guides/create-and-add-icons
 Error reporting for JavaScript errors in the main thread (and preload code?)
