@@ -1,4 +1,3 @@
-Command line option to load / not load Steam
 Crash report is putting the product= and version= values on the query parameters instead of part of the post body
   Probably easier to fix simple-breakpad-server for this
 Get a clean flow from client code to greenworks working - https://stackoverflow.com/questions/44391448/electron-require-is-not-defined

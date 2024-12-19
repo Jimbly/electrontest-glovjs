@@ -1,3 +1,4 @@
+const argv = require('minimist')(process.argv.slice(2));
 const exec = require('./exec.js');
 
 function copy(job, done) {
@@ -125,7 +126,7 @@ module.exports = function (config, gb) {
       // '--enable-logging',
       '--inspect-electron',
       // '--inspect-brk-electron',
-    ])),
+    ].concat(argv.steam === false ? ['--', '--no-steam'] : []))),
   });
 
   gb.task({

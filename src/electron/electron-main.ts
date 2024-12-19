@@ -89,7 +89,9 @@ function createWindow(): void {
 
 app.whenReady().then(function () {
   electronStorageWhenReady(function () {
-    greenworksTest();
+    if (!process.argv.includes('--no-steam')) {
+      greenworksTest();
+    }
     ipcMain.handle('ping', () => 'pong');
     ipcMain.handle('fullscreen-toggle', toggleFullScreen);
     ipcMain.handle('open-devtools', function () {
