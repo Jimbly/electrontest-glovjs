@@ -64,26 +64,41 @@ export function localStorageSet(key: string, value: string | null | undefined): 
   if (value === null) {
     value = undefined;
   }
+  let full_key = `${storage_prefix}_${key}`;
+  let unchanged = false;
+  let str: string;
+  if (value === undefined) {
+    delete lsd_overlay[full_key];
+  } else {
+    str = String(value);
+    if (lsd_overlay[full_key] === str) {
+      unchanged = true;
+    } else {
+      lsd_overlay[full_key] = str;
+    }
+  }
+
   if (external_store && external_store.test(key)) {
-    external_store.set(key, value);
+    if (!unchanged) {
+      external_store.set(key, value);
+    }
     return;
   }
-  key = `${storage_prefix}_${key}`;
   if (value === undefined) {
     if (lsd) {
-      lsd.removeItem(key);
+      lsd.removeItem(full_key);
     }
-    delete lsd_overlay[key];
+    delete lsd_overlay[full_key];
   } else {
-    let str = String(value);
-    lsd_overlay[key] = str;
-    try {
-      if (lsd) {
-        lsd.setItem(key, str);
+    if (!unchanged) {
+      try {
+        if (lsd) {
+          lsd.setItem(full_key, str!);
+        }
+      } catch (e) {
+        // ignored, it's in the overlay for the current session at least
+        // FireFox throws "The quota has been exceeded" errors here
       }
-    } catch (e) {
-      // ignored, it's in the overlay for the current session at least
-      // FireFox throws "The quota has been exceeded" errors here
     }
   }
 }

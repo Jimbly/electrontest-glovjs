@@ -179,6 +179,26 @@ export function electronStorageInit(): void {
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
     electronStorageSetJSON(file, field, value);
   });
+  ipcMain.handle('electron-storage-set-file', function (
+    event: IpcMainInvokeEvent,
+    file: string,
+    value: string | undefined,
+  ) {
+    assert(value === undefined || typeof value === 'string');
+    let full_path = forwardSlashes(path.resolve(storage_root, file));
+    assert(full_path.startsWith(`${storage_root}/files`), 'electron-storage-set-file received invalid path' +
+      ` ${JSON.stringify(file)}, resolved to ${JSON.stringify(full_path)}`);
+    let key = forwardSlashes(path.relative(storage_root, full_path));
+    if (data_store[key] === value) {
+      return;
+    }
+    if (value === undefined) {
+      delete data_store[key];
+    } else {
+      data_store[key] = value;
+    }
+    flushFile(key);
+  });
 }
 
 export function electronStorageWhenReady(cb: () => void): void {
