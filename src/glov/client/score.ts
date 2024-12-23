@@ -10,6 +10,7 @@ import { CmdRespFunc } from 'glov/common/cmd_parse';
 import { executeWithRetry } from 'glov/common/execute_with_retry';
 import {
   asyncDictionaryGet,
+  clone,
   nop,
 } from 'glov/common/util';
 import { cmd_parse } from './cmds';
@@ -96,6 +97,9 @@ function fetchJSON2Timeout<T>(url: string, timeout: number, cb: (err: string | u
 
 
 let allocated_user_id: string | null = null;
+export function scoreDebugUserID(): string | null {
+  return allocated_user_id;
+}
 type UserIDCB = (user_id: string) => void;
 type UserAllocResponse = { userid: string };
 function withUserID(f: UserIDCB): void {
@@ -548,7 +552,7 @@ class ScoreSystemImpl<ScoreType> {
 
   private saveScore(level_idx: number, obj_in: ScoreType, payload?: string): void {
     let ld = this.level_defs[level_idx];
-    let obj = obj_in as ScoreTypeInternal<ScoreType>;
+    let obj = clone(obj_in as ScoreTypeInternal<ScoreType>);
     obj.payload = payload;
     ld.local_score = obj;
     let key = `${this.LS_KEY}.score_${ld.name}`;
@@ -728,6 +732,17 @@ export function scoreFriendCodeGet(cb: (err: null | string, code: string) => voi
       }
     });
   });
+}
+
+let debug_friend_code: string | null = null;
+let friend_code_query_sent = false;
+export function scoreDebugFriendCode(): string | null {
+  if (!friend_code_query_sent) {
+    scoreFriendCodeGet(function (err, code) {
+      debug_friend_code = err || code;
+    });
+  }
+  return debug_friend_code;
 }
 
 cmd_parse.register({

@@ -92,7 +92,7 @@ module.exports = function exec(opts) {
         let kill_proc = proc;
         setProc(null);
         kill_proc.on('exit', startProc);
-        kill_proc.kill(kill_sig, 'SIGINT');
+        kill_proc.kill(kill_sig);
         // Use a stronger signal after a timeout if it doesn't exit?
         setTimeout(function () {
           if (kill_proc.exitCode === null) {

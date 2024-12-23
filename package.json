@@ -2,6 +2,10 @@
   "name": "electrontest-glovjs",
   "version": "1.0.0",
   "main": "dist/game/build.prod/server/index.js",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:Jimbly/electrontest-glovjs.git"
+  },
   "scripts": {
     "start": "nodemon -w build -w ../glov-build/ -- build default --watch",
     "clean": "node build clean",
