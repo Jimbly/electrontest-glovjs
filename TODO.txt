@@ -1,4 +1,9 @@
-Get scores integration with ui_test set up
+Get Steam User ID -> Score UID flow working
+  steam ID + auth -> glov login (generic glov login auth server)
+  provide generic app secret key signing to make an auth token (contains JSON expire=&userid=sXXX + signature)
+  send sXXX+auth to score server
+  score server can validate auth tokens
+Pipe score system to Steam leaderboards if auth'd
 
 Get a clean flow from client code to greenworks working - https://stackoverflow.com/questions/44391448/electron-require-is-not-defined
   Desired Steam API:
@@ -23,6 +28,7 @@ Get production build task working
   Any way to have only a single npm install folder?  How big? Big!
     Special Forge config flow that simply replaces files in the after copy step or something?
   Will _also_ need a demo build task, or can Demos ask Steam if they're the demo / check if they're owned?
+  electron-package-dev right now is running as production mode, should be dev (just don't package the asar?)
 Add a steam/electron platform if we need some special behavior?
   Probably we just have a "isSteam()" run-time query?
 Renderer crash is not exiting the app gracefully / showing any status

@@ -26,6 +26,8 @@ contextBridge.exposeInMainWorld('versions', {
   electron: () => process.versions.electron,
 });
 
+contextBridge.exposeInMainWorld('conf_platform', 'electron');
+
 contextBridge.exposeInMainWorld('myapi', {
   fullscreenToggle: function () {
     ipcRenderer.invoke('fullscreen-toggle');

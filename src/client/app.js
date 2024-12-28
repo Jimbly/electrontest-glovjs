@@ -13,6 +13,14 @@ function onLoad() {
   called_once = true;
   window.time_load_onload = Date.now();
   require('glov/client/bootstrap.js');
+
+  require('glov/common/platform').platformRegister('electron', {
+    devmode: String(document.location).includes('electrondebug') ? 'on' : 'off',
+    reload: false,
+    reload_updates: false,
+    random_creation_name: true,
+  });
+
   let electron_storage = require('./electron/electron_storage-renderer');
   electron_storage.electronStorageInit();
   electron_storage.electronStorageWhenReady(function () {

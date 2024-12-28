@@ -40,7 +40,7 @@ function toggleFullScreen(): void {
 }
 
 function createWindow(): void {
-  // let production_mode = app.isPackaged;
+  const production_mode = app.isPackaged;
   let default_fullscreen = false; // TODO: default to this in production mode
   let fullscreen = electronStorageGetJSON('settings-device.json', 'fullscreen', default_fullscreen);
   win = new BrowserWindow({
@@ -50,7 +50,6 @@ function createWindow(): void {
     minHeight: 180,
     webPreferences: {
       preload: path.join(__dirname, 'electron-preload.js'),
-      // nodeIntegration: true, // may want this for Steamworks integration?
       autoplayPolicy: 'no-user-gesture-required',
       // webSecurity: true, // maybe?
       // allowRunningInsecureContent: true, // maybe?
@@ -63,7 +62,9 @@ function createWindow(): void {
   });
   win.setAspectRatio(1920/1080);
   win.removeMenu(); // Maybe better than Menu.setApplicationMenu on Mac?
-  win.loadFile(path.join(__dirname, '../client/index.html'));
+  win.loadFile(path.join(__dirname, '../client/index.html'), {
+    query: production_mode ? {} : { electrondebug: '1' },
+  });
   win.webContents.openDevTools(); // TODO: only in dev mode
 
   win.webContents.on('before-input-event', function (unused, input) {
