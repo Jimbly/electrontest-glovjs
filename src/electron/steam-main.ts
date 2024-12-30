@@ -1,7 +1,22 @@
 /* eslint prefer-template:off */
+import {
+  IpcMainInvokeEvent,
+  ipcMain,
+} from 'electron/main';
+import { SteamInitResponse } from './electron-preload';
 
-export function greenworksTest(): void {
-  let greenworks;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let greenworks: any;
+
+let steam_init_data = {
+  initialized: false,
+} as SteamInitResponse;
+
+function log(...msg: (string|number)[]): void {
+  console.log('[GREENWORKS]', ...msg);
+}
+
+export function greenworksInit(): void {
   try {
     // eslint-disable-next-line global-require, import/order
     greenworks = require('./greenworks/greenworks.js');
@@ -9,15 +24,21 @@ export function greenworksTest(): void {
     console.log(e);
     return;
   }
-  function log(msg: string): void {
-    console.log('[GREENWORKS]', msg);
-  }
 
   try {
     if (!greenworks.init()) {
       log('Error on initializing steam API.');
     } else {
       log('Steam API initialized successfully.');
+
+      steam_init_data = {
+        initialized: true,
+        app_id: greenworks.getAppId(),
+        steam_id: greenworks.getSteamId().getRawSteamID(),
+      };
+
+      log('App ID: ' + steam_init_data.app_id);
+      log('Steam ID: ' + steam_init_data.steam_id);
 
       log('Cloud enabled: ' + greenworks.isCloudEnabled());
       log('Cloud enabled for user: ' + greenworks.isCloudEnabledForUser());
@@ -85,4 +106,24 @@ export function greenworksTest(): void {
   } catch (e) {
     console.log(e);
   }
+}
+
+export function steamInit(): void {
+  if (!process.argv.includes('--no-steam')) {
+    greenworksInit();
+  }
+
+  ipcMain.handle('steam-init', function () {
+    return Promise.resolve(steam_init_data);
+  });
+
+  ipcMain.handle('steam-getEncryptedAppTicket', function (event: IpcMainInvokeEvent, content: string) {
+    return new Promise(function (resolve, reject) {
+      log('Requesting encrypted app ticket...');
+      greenworks!.getEncryptedAppTicket(content, function (ticket: Buffer): void {
+        log('Received app ticket');
+        resolve(ticket.toString('base64url'));
+      });
+    });
+  });
 }

@@ -85,6 +85,7 @@ import {
   vec2,
   vec4,
 } from 'glov/common/vmath';
+import { steamInit } from './electron/steam-renderer';
 import * as particle_data from './particle_data';
 import { test3D } from './test_3d';
 
@@ -745,5 +746,7 @@ export function main(): void {
   }
 
   initGraphics();
-  setState(testInit);
+  steamInit(function () {
+    setState(testInit);
+  });
 }

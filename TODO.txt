@@ -1,8 +1,7 @@
-Get Steam User ID -> Score UID flow working
-  steam ID + auth -> glov login (generic glov login auth server)
-  provide generic app secret key signing to make an auth token (contains JSON expire=&userid=sXXX + signature)
-  send sXXX+auth to score server
-  score server can validate auth tokens
+Next:
+
+Use Steam username for scores automatically
+Submit rename upon Steam username change automatically
 Pipe score system to Steam leaderboards if auth'd
 
 Get a clean flow from client code to greenworks working - https://stackoverflow.com/questions/44391448/electron-require-is-not-defined
@@ -23,6 +22,7 @@ Get a clean flow from client code to greenworks working - https://stackoverflow.
 
 add fix for insecure content warning, ensure scores, reports, errors, etc still work
 build pipeline: how do we add app-defined targets via config.project?  Just allow adding new build targets at configure-time?
+build pipeline: get reasonable sourcemap URL in production bundles (back to localhost:3000 and/or sourcemap server with version)
 crash reports: globalExtra is not showing up in UI (do I need to add something to my server config?)
 Get production build task working
   Any way to have only a single npm install folder?  How big? Big!
@@ -34,4 +34,4 @@ Add a steam/electron platform if we need some special behavior?
 Renderer crash is not exiting the app gracefully / showing any status
 Icons: https://www.electronforge.io/guides/create-and-add-icons
 Error reporting for JavaScript errors in the main thread (and preload code?)
-Figure out why electron is blocking async typescript
+Figure out why electron is blocking async typescript (maybe only happens before changing electron-dev to not depend on TypeScript?)

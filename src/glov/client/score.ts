@@ -10,6 +10,7 @@ import { CmdRespFunc } from 'glov/common/cmd_parse';
 import { executeWithRetry } from 'glov/common/execute_with_retry';
 import {
   asyncDictionaryGet,
+  callEach,
   clone,
   nop,
 } from 'glov/common/util';
@@ -26,6 +27,7 @@ import type {
 
 const PLAYER_NAME_KEY = 'ld.player_name';
 const USERID_KEY = 'score.userid';
+const USERID_PROVIDER_KEY = 'score.userprovider';
 const FRIENDS_KEY = 'score.friends';
 const FRIEND_SET_CACHE_KEY = 'score.fsc';
 const SCORE_REFRESH_TIME = 5*60*1000; // also refreshes if we submit a new score, or forceRefreshScores() is called
@@ -41,6 +43,10 @@ let lsd = (function (): Partial<Record<string, string>> {
     return {};
   }
 }());
+
+export function scoreLSD(): Partial<Record<string, string>> {
+  return lsd;
+}
 
 if (lsd[PLAYER_NAME_KEY]) {
   player_name = lsd[PLAYER_NAME_KEY]!;
@@ -69,7 +75,11 @@ if (MODE_DEVELOPMENT ||
 if (window.location.href.startsWith('https://')) {
   score_host = score_host.replace(/^http:/, 'https:');
 }
-const friends_host = score_host.replace('scores.', 'friends.');
+const friends_host = score_host.replace('scores.', 'friends.').replace(':4005', ':4023');
+const auth_host = score_host.replace('scores.', 'auth.').replace(':4005', ':4024');
+export function scoreGetAuthHost(): string {
+  return auth_host;
+}
 export function scoreGetPlayerName(): string {
   return player_name;
 }
@@ -86,7 +96,7 @@ function fetchJSON2<T>(url: string, cb: (err: string | undefined, o: T) => void)
   });
 }
 
-function fetchJSON2Timeout<T>(url: string, timeout: number, cb: (err: string | undefined, o: T) => void): void {
+export function fetchJSON2Timeout<T>(url: string, timeout: number, cb: (err: string | undefined, o: T) => void): void {
   fetch({
     url: url,
     response_type: 'json',
@@ -94,6 +104,39 @@ function fetchJSON2Timeout<T>(url: string, timeout: number, cb: (err: string | u
   }, (err: string | undefined, resp: unknown) => {
     cb(err, resp as T);
   });
+}
+
+export type ScoreUserProvider = {
+  provider_id: string;
+  // getUserID() - called once
+  getUserID(cb: ErrorCallback<string, string>): void;
+  // getAuthToken() - called on every request (callee does caching/expiration)
+  getAuthToken(cb: ErrorCallback<string | null, string>): void;
+};
+const PROVIDER_AUTO_WEB = 'auto_web';
+const score_user_provider_auto_web: ScoreUserProvider = {
+  provider_id: PROVIDER_AUTO_WEB,
+  getAuthToken(cb: ErrorCallback<string | null, string>): void {
+    cb(null);
+  },
+  getUserID(cb: ErrorCallback<string, string>): void {
+    let url = `${score_host}/api/useralloc`;
+    fetchJSON2Timeout<UserAllocResponse>(url, 20000, function (err: string | undefined, res: UserAllocResponse) {
+      if (err) {
+        return cb(err);
+      }
+      assert(res);
+      assert(res.userid);
+      assert.equal(typeof res.userid, 'string');
+      cb(null, res.userid);
+    });
+  }
+};
+let score_user_provider = score_user_provider_auto_web;
+let has_requested_user = false;
+export function scoreUserProviderSet(provider: ScoreUserProvider): void {
+  assert(!has_requested_user);
+  score_user_provider = provider;
 }
 
 
@@ -104,37 +147,30 @@ export function scoreDebugUserID(): string | null {
 type UserIDCB = (user_id: string) => void;
 type UserAllocResponse = { userid: string };
 function withUserID(f: UserIDCB): void {
-  if (allocated_user_id === null && lsd[USERID_KEY]) {
+  has_requested_user = true;
+  if (allocated_user_id === null && lsd[USERID_KEY] &&
+    (lsd[USERID_PROVIDER_KEY] || PROVIDER_AUTO_WEB) === score_user_provider.provider_id
+  ) {
     allocated_user_id = lsd[USERID_KEY]!;
-    console.log(`Using existing ScoreAPI UserID: "${allocated_user_id}"`);
+    console.log(`Using existing ScoreAPI UserID: "${allocated_user_id}" from "${score_user_provider.provider_id}"`);
   }
   if (allocated_user_id !== null) {
     return f(allocated_user_id);
   }
 
   asyncDictionaryGet<string>('score_user_id', 'the', function (key_the_ignored: string, cb: (value: string) => void) {
-    let url = `${score_host}/api/useralloc`;
-    function fetchUserID(next: ErrorCallback<string, string>): void {
-      fetchJSON2Timeout<UserAllocResponse>(url, 20000, function (err: string | undefined, res: UserAllocResponse) {
-        if (err) {
-          return next(err);
-        }
-        assert(res);
-        assert(res.userid);
-        assert.equal(typeof res.userid, 'string');
-        next(null, res.userid);
-      });
-    }
+
     function done(err?: string | null, result?: string | null): void {
       assert(!err);
       assert(result);
       allocated_user_id = result;
       lsd[USERID_KEY] = result;
+      lsd[USERID_PROVIDER_KEY] = score_user_provider.provider_id;
       console.log(`Allocated new ScoreAPI UserID: "${allocated_user_id}"`);
       cb(allocated_user_id);
     }
     executeWithRetry<string, string>(
-      fetchUserID, {
+      score_user_provider.getUserID.bind(score_user_provider), {
         max_retries: Infinity,
         inc_backoff_duration: 250,
         max_backoff: 30000,
@@ -147,6 +183,30 @@ function withUserID(f: UserIDCB): void {
 
 export function scoreWithUserID(cb: UserIDCB): void {
   withUserID(cb);
+}
+
+let auth_in_flight: null | ((auth: string) => void)[] = null;
+function withAuthToken(cb: (auth: string) => void): void {
+  if (auth_in_flight) {
+    auth_in_flight.push(cb);
+    return;
+  }
+  auth_in_flight = [cb];
+  function done(err?: string | null, result?: string | null): void {
+    assert(!err);
+    assert(result !== undefined);
+    let auth_param = result ? `&auth=${result}` : '';
+    callEach(auth_in_flight, auth_in_flight = null, auth_param);
+  }
+  executeWithRetry<string, string>(
+    score_user_provider.getAuthToken.bind(score_user_provider), {
+      max_retries: Infinity,
+      inc_backoff_duration: 250,
+      max_backoff: 30000,
+      log_prefix: 'ScoreAPI Auth token fetch',
+    },
+    done,
+  );
 }
 
 type FriendSetResponse = { friendset: string };
@@ -541,15 +601,17 @@ class ScoreSystemImpl<ScoreType> {
           //   url = 'http://errornow.dashingstrike.com/scoreset/error';
           // }
         }
-        fetchJSON2(
-          url,
-          (err: string | undefined, scores: HighScoreListRaw) => {
-            if (!err) {
-              this.handleScoreResp(level_idx, friend_cat, scores);
-            }
-            cb?.(err || null);
-          },
-        );
+        withAuthToken((auth: string) => {
+          fetchJSON2(
+            url + auth,
+            (err: string | undefined, scores: HighScoreListRaw) => {
+              if (!err) {
+                this.handleScoreResp(level_idx, friend_cat, scores);
+              }
+              cb?.(err || null);
+            },
+          );
+        });
       });
     });
   }
@@ -615,7 +677,7 @@ class ScoreSystemImpl<ScoreType> {
     let encoded = this.score_to_value(score) || 0;
     let encoded_local = ld.local_score && this.score_to_value(ld.local_score) || (this.asc ? Infinity : 0);
     if (this.asc ? encoded < encoded_local : encoded > encoded_local ||
-      encoded === encoded_local && !ld.local_score?.submitted
+      encoded === encoded_local && !ld.local_score?.submitted && !ld.save_in_flight
     ) {
       this.saveScore(level_idx, score, payload);
     }
@@ -685,24 +747,26 @@ export function scoreUpdatePlayerName(new_player_name: string): void {
 
   withUserID((user_id: string) => {
     let url = `${score_host}/api/userrename?userid=${user_id}&name=${encodeURIComponent(player_name)}`;
-    fetch({
-      url,
-    }, (err: string | undefined, res: string) => {
-      if (err) {
-        if (res) {
-          try {
-            err = JSON.parse(res).err || err;
-          } catch (e) {
-            // ignored
+    withAuthToken((auth: string) => {
+      fetch({
+        url: url + auth,
+      }, (err: string | undefined, res: string) => {
+        if (err) {
+          if (res) {
+            try {
+              err = JSON.parse(res).err || err;
+            } catch (e) {
+              // ignored
+            }
+          }
+          lsd[PLAYER_NAME_KEY] = player_name = old_name;
+          alert(`Error updating player name: "${err}"`); // eslint-disable-line no-alert
+        } else {
+          for (let ii = 0; ii < all_score_systems.length; ++ii) {
+            all_score_systems[ii].onUpdatePlayerName(old_name);
           }
         }
-        lsd[PLAYER_NAME_KEY] = player_name = old_name;
-        alert(`Error updating player name: "${err}"`); // eslint-disable-line no-alert
-      } else {
-        for (let ii = 0; ii < all_score_systems.length; ++ii) {
-          all_score_systems[ii].onUpdatePlayerName(old_name);
-        }
-      }
+      });
     });
   });
 }
@@ -742,6 +806,7 @@ let debug_friend_code: string | null = null;
 let friend_code_query_sent = false;
 export function scoreDebugFriendCode(): string | null {
   if (!friend_code_query_sent) {
+    friend_code_query_sent = true;
     scoreFriendCodeGet(function (err, code) {
       debug_friend_code = err || code;
     });

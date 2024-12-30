@@ -1,5 +1,6 @@
 const argv = require('minimist')(process.argv.slice(2));
 const exec = require('./exec.js');
+const sourcemapRemap = require('./sourcemap-remap');
 
 function copy(job, done) {
   job.out(job.getFile());
@@ -52,7 +53,10 @@ module.exports = function (config, gb) {
     name: 'electron-from-dev',
     input: [
       'client_dev_outputs:**',
-      'client_dev_outputs:!client/*.html', // exclude other index.htmls (TODO: probably need an index_electron.html?)
+      'client_dev_outputs:!**/*.bundle.js',
+      'client_dev_outputs:!client/*.html', // exclude other index.htmls
+      // 'client_dev_outputs:client/index_entity.html',
+      // 'client_dev_outputs:client/index_multiplayer.html',
       'client_dev_outputs:client/index.html',
       'server_dev_outputs:electron/**',
       'server_dev_outputs:!electron/forge.config.js*',
@@ -61,6 +65,19 @@ module.exports = function (config, gb) {
     target: 'electron',
     type: gb.SINGLE,
     func: copy,
+  });
+  gb.task({
+    name: 'electron-bundles',
+    input: [
+      'client_dev_outputs:**/*.bundle.js',
+    ],
+    target: 'electron',
+    type: gb.SINGLE,
+    ...sourcemapRemap(function (job, filename, next) {
+      // don't require a dev server running for electron-start
+      filename = filename.replace(/^https?:\/\/localhost(?::\d+)?\//, '');
+      next(null, filename);
+    }),
   });
   gb.task({
     name: 'electron-to-root',
@@ -112,14 +129,12 @@ module.exports = function (config, gb) {
   }
   gb.task({
     name: 'electron-start',
-    deps: [
-      'build_deps', // for linting, typescript, etc
-      'electron-npm-install',
-    ],
+    deps: ['electron-npm-install'],
     input: [
       'electron-to-root:**',
       'server_dev_outputs:electron/**',
       'electron-from-dev:client/**',
+      'electron-bundles:**',
     ],
     ...exec(forge([
       'start',
@@ -130,12 +145,21 @@ module.exports = function (config, gb) {
   });
 
   gb.task({
+    name: 'electron-start-dev',
+    deps: [
+      'build_deps', // for linting, typescript, etc
+      'electron-start',
+    ],
+  });
+
+  gb.task({
     name: 'electron-package-dev',
     deps: ['electron-npm-install'],
     input: [
       'electron-to-root:**',
       'server_dev_outputs:electron/**',
       'electron-from-dev:client/**',
+      'electron-bundles:**',
     ],
     ...exec({
       ...forge([
@@ -147,5 +171,6 @@ module.exports = function (config, gb) {
   });
 
   // TODO: electron-package-prod - does similar as all of above (also a
-  //   electron-start-prod for testing?) but with prod output files
+  //   electron-start-prod for testing?) but with prod output files, and also
+  //   has build_deps as a dep so it errors if TypeScript/eslint fails
 };

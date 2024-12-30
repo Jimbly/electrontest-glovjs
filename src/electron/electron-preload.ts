@@ -1,4 +1,34 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import type { NetErrorCallback } from 'glov/common/types';
+
+// Wraps a callback so that it escapes implicit try/catches from callbacks fired
+//   within Promises.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function unpromisify<P extends any[], T=never>(f: (this: T, ...args: P) => void): (this: T, ...args: P) => void {
+  return function (this: T): void {
+  // eslint-disable-next-line @typescript-eslint/no-invalid-this, prefer-rest-params, @typescript-eslint/no-explicit-any
+    setImmediate((f as any).apply.bind(f, this, arguments));
+  };
+}
+
+function errorString(e: Error | DataObject | string | unknown) : string {
+  let msg = String(e);
+  if (msg === '[object Object]') {
+    try {
+      msg = JSON.stringify(e);
+    } catch (ignored) {
+      // ignored
+    }
+  }
+  if (e && (e as Error).stack && (e as Error).message) {
+    // Error object or similar
+    // Just grabbing the message, but could do something with the stack similar to error handler in bootstrap.js
+    msg = String((e as Error).message);
+  }
+  msg = msg.slice(0, 600); // Not too huge
+  return msg;
+}
+
 
 type DataObject = Partial<Record<string, unknown>>;
 
@@ -8,11 +38,25 @@ export type ELectronStorage = {
   setFile(file: string, value: string | undefined): void;
 };
 
+export type SteamInitResponse = {
+  initialized: boolean;
+  steam_id: string;
+  app_id: string;
+};
+
+export type ELectronSteamAPI = {
+  init(cb: NetErrorCallback<SteamInitResponse>): void;
+  getEncryptedAppTicket(content: string, cb: NetErrorCallback<string>): void;
+};
+
+export type ElectonGlovAPI = {
+  storage: ELectronStorage;
+  steam: ELectronSteamAPI;
+};
+
 declare global {
   interface Window {
-    glov_electron?: {
-      storage: ELectronStorage;
-    };
+    glov_electron?: ElectonGlovAPI;
   }
 }
 
@@ -43,7 +87,7 @@ contextBridge.exposeInMainWorld('myapi', {
   },
 });
 
-contextBridge.exposeInMainWorld('glov_electron', {
+let api: ElectonGlovAPI = {
   storage: {
     getAll: function () {
       return ipcRenderer.invoke('electron-storage-get-all');
@@ -60,4 +104,21 @@ contextBridge.exposeInMainWorld('glov_electron', {
     //   });
     // }
   },
-});
+  steam: {
+    init: function (cb: NetErrorCallback<SteamInitResponse>): void {
+      ipcRenderer.invoke('steam-init').then(unpromisify(function (payload: SteamInitResponse) {
+        cb(null, payload);
+      }), function (err: unknown) {
+        cb(errorString(err));
+      });
+    },
+    getEncryptedAppTicket: function (content: string, cb: NetErrorCallback<string>): void {
+      ipcRenderer.invoke('steam-getEncryptedAppTicket', content).then(unpromisify(function (payload: string) {
+        cb(null, payload);
+      }), function (err: unknown) {
+        cb(errorString(err));
+      });
+    },
+  },
+};
+contextBridge.exposeInMainWorld('glov_electron', api);

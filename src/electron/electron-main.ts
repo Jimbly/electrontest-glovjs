@@ -12,7 +12,7 @@ import {
   electronStorageSetJSON,
   electronStorageWhenReady
 } from './electron_storage-main';
-import { greenworksTest } from './steam';
+import { steamInit } from './steam-main';
 
 app.commandLine.appendSwitch('--in-process-gpu', '--disable-direct-composition');
 
@@ -26,6 +26,7 @@ crashReporter.start({
 });
 
 electronStorageInit();
+steamInit();
 
 let win: BrowserWindow;
 
@@ -90,9 +91,6 @@ function createWindow(): void {
 
 app.whenReady().then(function () {
   electronStorageWhenReady(function () {
-    if (!process.argv.includes('--no-steam')) {
-      greenworksTest();
-    }
     ipcMain.handle('ping', () => 'pong');
     ipcMain.handle('fullscreen-toggle', toggleFullScreen);
     ipcMain.handle('open-devtools', function () {

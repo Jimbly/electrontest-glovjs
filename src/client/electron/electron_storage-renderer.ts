@@ -1,6 +1,7 @@
 // No imports except types and localStorage, need 0% chance of registering settings, etc before our hook
 import assert from 'assert';
 import { localStorageAddExternalStore } from 'glov/client/local_storage';
+import { unpromisify } from 'glov/common/util';
 import type { DataObject, TSMap, VoidFunc } from 'glov/common/types';
 
 let electron_storage = window.glov_electron?.storage;
@@ -66,7 +67,7 @@ if (electron_storage) {
 
 export function electronStorageInit(): void {
   if (electron_storage) {
-    electron_storage.getAll().then(function (payload: TSMap<string | DataObject>) {
+    electron_storage.getAll().then(unpromisify(function (payload: TSMap<string | DataObject>) {
       data_store = payload;
       console.log(`[ELECTRONSTORAGE] Storage initialized, ${Object.keys(data_store).length} files loaded`);
       let cbs = after_init_cbs!;
@@ -74,7 +75,7 @@ export function electronStorageInit(): void {
       for (let ii = 0; ii < cbs.length; ++ii) {
         cbs[ii]();
       }
-    });
+    }));
   }
 }
 
