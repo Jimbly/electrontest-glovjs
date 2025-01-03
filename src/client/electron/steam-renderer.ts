@@ -1,6 +1,7 @@
 import assert from 'assert';
 import { loadPendingDelta } from 'glov/client/engine';
 import {
+  ScoreUserInfo,
   fetchJSON2Timeout,
   scoreGetAuthHost,
   scoreLSD,
@@ -24,8 +25,11 @@ type AuthResponse = {
   token: string;
 };
 
-function steamScoreGetUserID(cb: ErrorCallback<string, string>): void {
-  cb(null, `s${steam_init_data.steam_id}`);
+function steamScoreGetAccountInfo(cb: ErrorCallback<ScoreUserInfo, string>): void {
+  cb(null, {
+    user_id: `s${steam_init_data.steam_id}`,
+    display_name: steam_init_data.display_name || null,
+  });
 }
 
 type AuthCache = AuthResponse & {
@@ -114,7 +118,7 @@ export function steamInit(next: VoidFunc): void {
 
       scoreUserProviderSet({
         provider_id: 'steam',
-        getUserID: steamScoreGetUserID,
+        getAccountInfo: steamScoreGetAccountInfo,
         getAuthToken: steamScoreGetAuthToken,
       });
     }

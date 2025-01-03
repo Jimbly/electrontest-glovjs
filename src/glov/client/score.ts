@@ -106,10 +106,15 @@ export function fetchJSON2Timeout<T>(url: string, timeout: number, cb: (err: str
   });
 }
 
+export type ScoreUserInfo = {
+  user_id: string;
+  display_name: string | null; // unchangeable account-specified name
+};
+
 export type ScoreUserProvider = {
   provider_id: string;
   // getUserID() - called once
-  getUserID(cb: ErrorCallback<string, string>): void;
+  getAccountInfo(cb: ErrorCallback<ScoreUserInfo, string>): void;
   // getAuthToken() - called on every request (callee does caching/expiration)
   getAuthToken(cb: ErrorCallback<string | null, string>): void;
 };
@@ -119,7 +124,7 @@ const score_user_provider_auto_web: ScoreUserProvider = {
   getAuthToken(cb: ErrorCallback<string | null, string>): void {
     cb(null);
   },
-  getUserID(cb: ErrorCallback<string, string>): void {
+  getAccountInfo(cb: ErrorCallback<ScoreUserInfo, string>): void {
     let url = `${score_host}/api/useralloc`;
     fetchJSON2Timeout<UserAllocResponse>(url, 20000, function (err: string | undefined, res: UserAllocResponse) {
       if (err) {
@@ -128,7 +133,10 @@ const score_user_provider_auto_web: ScoreUserProvider = {
       assert(res);
       assert(res.userid);
       assert.equal(typeof res.userid, 'string');
-      cb(null, res.userid);
+      cb(null, {
+        user_id: res.userid,
+        display_name: null,
+      });
     });
   }
 };
@@ -160,17 +168,29 @@ function withUserID(f: UserIDCB): void {
 
   asyncDictionaryGet<string>('score_user_id', 'the', function (key_the_ignored: string, cb: (value: string) => void) {
 
-    function done(err?: string | null, result?: string | null): void {
+    function done(err?: string | null, result?: ScoreUserInfo | null): void {
       assert(!err);
       assert(result);
-      allocated_user_id = result;
-      lsd[USERID_KEY] = result;
+      assert(result.user_id);
+      allocated_user_id = result.user_id;
+      if (player_name && result.display_name && player_name !== result.display_name) {
+        // we had a name, submit a change (may not be a changed name, just a
+        // changed user on this device, but that's fine)
+        need_rename = true;
+      }
+      if (result.display_name) {
+        allow_change_name = false;
+        player_name = result.display_name;
+      } else {
+        allow_change_name = true;
+      }
+      lsd[USERID_KEY] = result.user_id;
       lsd[USERID_PROVIDER_KEY] = score_user_provider.provider_id;
       console.log(`Allocated new ScoreAPI UserID: "${allocated_user_id}"`);
       cb(allocated_user_id);
     }
-    executeWithRetry<string, string>(
-      score_user_provider.getUserID.bind(score_user_provider), {
+    executeWithRetry<ScoreUserInfo, string>(
+      score_user_provider.getAccountInfo.bind(score_user_provider), {
         max_retries: Infinity,
         inc_backoff_duration: 250,
         max_backoff: 30000,

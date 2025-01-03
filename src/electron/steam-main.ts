@@ -35,6 +35,7 @@ export function greenworksInit(): void {
         initialized: true,
         app_id: greenworks.getAppId(),
         steam_id: greenworks.getSteamId().getRawSteamID(),
+        display_name: greenworks.getSteamId().getPersonaName()
       };
 
       log('App ID: ' + steam_init_data.app_id);

@@ -42,6 +42,7 @@ export type SteamInitResponse = {
   initialized: boolean;
   steam_id: string;
   app_id: string;
+  display_name: string;
 };
 
 export type ELectronSteamAPI = {
