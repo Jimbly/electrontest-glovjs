@@ -120,6 +120,7 @@ export function steamInit(next: VoidFunc): void {
         provider_id: 'steam',
         getAccountInfo: steamScoreGetAccountInfo,
         getAuthToken: steamScoreGetAuthToken,
+        setName: null,
       });
     }
     loadPendingDelta(-1);

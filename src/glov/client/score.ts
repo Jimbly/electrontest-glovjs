@@ -17,6 +17,9 @@ import {
 import { MODE_DEVELOPMENT } from './client_config';
 import { cmd_parse } from './cmds';
 import { fetch } from './fetch';
+import {
+  score_user_provider_auto_web,
+} from './score_provider_autoweb';
 
 import type {
   ErrorCallback,
@@ -25,15 +28,12 @@ import type {
   VoidFunc,
 } from 'glov/common/types';
 
-const PLAYER_NAME_KEY = 'ld.player_name';
-const USERID_KEY = 'score.userid';
-const USERID_PROVIDER_KEY = 'score.userprovider';
+const USERID_CACHE_KEY = 'score.idcache';
 const FRIENDS_KEY = 'score.friends';
 const FRIEND_SET_CACHE_KEY = 'score.fsc';
 const SCORE_REFRESH_TIME = 5*60*1000; // also refreshes if we submit a new score, or forceRefreshScores() is called
 const SUBMIT_RATELIMIT = 5000; // Only kicks in if two are in-flight at the same time
 
-let player_name: string = '';
 let lsd = (function (): Partial<Record<string, string>> {
   try {
     localStorage.setItem('test', 'test');
@@ -48,19 +48,19 @@ export function scoreLSD(): Partial<Record<string, string>> {
   return lsd;
 }
 
-if (lsd[PLAYER_NAME_KEY]) {
-  player_name = lsd[PLAYER_NAME_KEY]!;
+function scoreLSDParse<T>(key: string): T | undefined {
+  if (lsd[key]) {
+    try {
+      return JSON.parse(lsd[key]!) as T;
+    } catch (e) {
+      // ignored
+    }
+  }
+  return undefined;
 }
 
 let friend_cats: TSMap<string[]> = {};
-let friends_by_code: string[] = [];
-if (lsd[FRIENDS_KEY]) {
-  try {
-    friends_by_code = JSON.parse(lsd[FRIENDS_KEY]!) as string[];
-  } catch (e) {
-    // ignored
-  }
-}
+let friends_by_code: string[] = scoreLSDParse<string[]>(FRIENDS_KEY) || [];
 friend_cats.friends = friends_by_code;
 
 let score_host = 'http://scores.dashingstrike.com';
@@ -80,6 +80,10 @@ const auth_host = score_host.replace('scores.', 'auth.').replace(':4005', ':4024
 export function scoreGetAuthHost(): string {
   return auth_host;
 }
+export function scoreGetScoreHost(): string {
+  return score_host;
+}
+let player_name = '';
 export function scoreGetPlayerName(): string {
   return player_name;
 }
@@ -108,7 +112,7 @@ export function fetchJSON2Timeout<T>(url: string, timeout: number, cb: (err: str
 
 export type ScoreUserInfo = {
   user_id: string;
-  display_name: string | null; // unchangeable account-specified name
+  display_name: string | null;
 };
 
 export type ScoreUserProvider = {
@@ -117,30 +121,11 @@ export type ScoreUserProvider = {
   getAccountInfo(cb: ErrorCallback<ScoreUserInfo, string>): void;
   // getAuthToken() - called on every request (callee does caching/expiration)
   getAuthToken(cb: ErrorCallback<string | null, string>): void;
-};
-const PROVIDER_AUTO_WEB = 'auto_web';
-const score_user_provider_auto_web: ScoreUserProvider = {
-  provider_id: PROVIDER_AUTO_WEB,
-  getAuthToken(cb: ErrorCallback<string | null, string>): void {
-    cb(null);
-  },
-  getAccountInfo(cb: ErrorCallback<ScoreUserInfo, string>): void {
-    let url = `${score_host}/api/useralloc`;
-    fetchJSON2Timeout<UserAllocResponse>(url, 20000, function (err: string | undefined, res: UserAllocResponse) {
-      if (err) {
-        return cb(err);
-      }
-      assert(res);
-      assert(res.userid);
-      assert.equal(typeof res.userid, 'string');
-      cb(null, {
-        user_id: res.userid,
-        display_name: null,
-      });
-    });
-  }
+  // setName() - optional if provider allows renames to come from apps
+  setName: null | ((name: string) => void);
 };
 let score_user_provider = score_user_provider_auto_web;
+assert(score_user_provider);
 let has_requested_user = false;
 export function scoreUserProviderSet(provider: ScoreUserProvider): void {
   assert(!has_requested_user);
@@ -153,15 +138,11 @@ export function scoreDebugUserID(): string | null {
   return allocated_user_id;
 }
 type UserIDCB = (user_id: string) => void;
-type UserAllocResponse = { userid: string };
+type ScoreIDCache = ScoreUserInfo & {
+  provider_id: string;
+};
 function withUserID(f: UserIDCB): void {
   has_requested_user = true;
-  if (allocated_user_id === null && lsd[USERID_KEY] &&
-    (lsd[USERID_PROVIDER_KEY] || PROVIDER_AUTO_WEB) === score_user_provider.provider_id
-  ) {
-    allocated_user_id = lsd[USERID_KEY]!;
-    console.log(`Using existing ScoreAPI UserID: "${allocated_user_id}" from "${score_user_provider.provider_id}"`);
-  }
   if (allocated_user_id !== null) {
     return f(allocated_user_id);
   }
@@ -173,21 +154,45 @@ function withUserID(f: UserIDCB): void {
       assert(result);
       assert(result.user_id);
       allocated_user_id = result.user_id;
-      if (player_name && result.display_name && player_name !== result.display_name) {
-        // we had a name, submit a change (may not be a changed name, just a
-        // changed user on this device, but that's fine)
-        need_rename = true;
-      }
-      if (result.display_name) {
-        allow_change_name = false;
-        player_name = result.display_name;
+      player_name = result.display_name || '';
+      let new_user = false;
+      let need_rename = false;
+
+      let old_cache = scoreLSDParse<ScoreIDCache>(USERID_CACHE_KEY) || null;
+      if (old_cache) {
+        let id_changed = old_cache.user_id !== result.user_id;
+        if (id_changed) {
+          new_user = true;
+        } else {
+          need_rename = Boolean(old_cache.display_name !== result.display_name);
+        }
       } else {
-        allow_change_name = true;
+        new_user = true;
       }
-      lsd[USERID_KEY] = result.user_id;
-      lsd[USERID_PROVIDER_KEY] = score_user_provider.provider_id;
+      if (new_user) {
+        // new user on this device
+        // clear per-level score cache if user ID has changed
+        // eslint-disable-next-line @typescript-eslint/no-use-before-define
+        scoreClearScoreCache();
+        // could also submit a rename here, but it causes a spurious rename for _every_ new user, which 400s
+      }
+      let cache_data: ScoreIDCache = {
+        ...result,
+        provider_id: score_user_provider.provider_id,
+      };
+      lsd[USERID_CACHE_KEY] = JSON.stringify(cache_data);
       console.log(`Allocated new ScoreAPI UserID: "${allocated_user_id}"`);
       cb(allocated_user_id);
+
+      if (need_rename && result.display_name) {
+        // Send current name to the server
+        // eslint-disable-next-line @typescript-eslint/no-use-before-define
+        scoreUpdatePlayerNameInternal(player_name, function (err: string | null) {
+          if (err) {
+            console.error('Error updating score server with new name:', err);
+          }
+        });
+      }
     }
     executeWithRetry<ScoreUserInfo, string>(
       score_user_provider.getAccountInfo.bind(score_user_provider), {
@@ -739,6 +744,18 @@ class ScoreSystemImpl<ScoreType> {
       }
     }
   }
+
+  clearScoreCache(): void {
+    for (let level_idx = 0; level_idx < this.level_defs.length; ++level_idx) {
+      let ld = this.level_defs[level_idx];
+      if (ld.local_score && ld.local_score.submitted && !ld.save_in_flight) {
+        console.log(`score: ${ld.name}: clearing cached score ${JSON.stringify(ld.local_score)}...`);
+        delete ld.local_score;
+        let key = `${this.LS_KEY}.score_${ld.name}`;
+        delete lsd[key];
+      }
+    }
+  }
 }
 
 
@@ -755,15 +772,18 @@ export function scoreFormatName<ScoreType>(score: HighScoreListEntry<ScoreType>)
   return score.names_str;
 }
 
-export function scoreUpdatePlayerName(new_player_name: string): void {
+export function scoreCanUpdatePlayerName(): boolean {
+  return Boolean(score_user_provider.setName);
+}
+
+// Just sends to server, no change to our state, call scoreUpdatePlayerName() for any run-time updates
+function scoreUpdatePlayerNameInternal(new_player_name: string, cb: (err: string | null) => void): void {
   if (new_player_name) {
     new_player_name = new_player_name.trim().slice(0, 64); // same logic as on server
   }
-  if (new_player_name === player_name || !new_player_name) {
-    return;
+  if (!new_player_name) {
+    return cb(null);
   }
-  let old_name = player_name;
-  lsd[PLAYER_NAME_KEY] = player_name = new_player_name;
 
   withUserID((user_id: string) => {
     let url = `${score_host}/api/userrename?userid=${user_id}&name=${encodeURIComponent(player_name)}`;
@@ -779,16 +799,41 @@ export function scoreUpdatePlayerName(new_player_name: string): void {
               // ignored
             }
           }
-          lsd[PLAYER_NAME_KEY] = player_name = old_name;
-          alert(`Error updating player name: "${err}"`); // eslint-disable-line no-alert
+          cb(err as string);
         } else {
-          for (let ii = 0; ii < all_score_systems.length; ++ii) {
-            all_score_systems[ii].onUpdatePlayerName(old_name);
-          }
+          cb(null);
         }
       });
     });
   });
+}
+export function scoreUpdatePlayerName(new_player_name: string): void {
+  assert(score_user_provider.setName);
+  if (new_player_name) {
+    new_player_name = new_player_name.trim().slice(0, 64); // same logic as on server
+  }
+  if (new_player_name === player_name || !new_player_name) {
+    return;
+  }
+  let old_name = player_name;
+  player_name = new_player_name;
+  scoreUpdatePlayerNameInternal(new_player_name, function (err) {
+    if (err) {
+      player_name = old_name;
+      alert(`Error updating player name: "${err}"`); // eslint-disable-line no-alert
+    } else {
+      score_user_provider.setName!(new_player_name);
+      for (let ii = 0; ii < all_score_systems.length; ++ii) {
+        all_score_systems[ii].onUpdatePlayerName(old_name);
+      }
+    }
+  });
+}
+
+function scoreClearScoreCache(): void {
+  for (let ii = 0; ii < all_score_systems.length; ++ii) {
+    all_score_systems[ii].clearScoreCache();
+  }
 }
 
 export function scoreFriendCatAdd(cat: string, list: string[]): void {
