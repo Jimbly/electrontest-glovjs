@@ -181,7 +181,7 @@ function withUserID(f: UserIDCB): void {
         provider_id: score_user_provider.provider_id,
       };
       lsd[USERID_CACHE_KEY] = JSON.stringify(cache_data);
-      console.log(`Allocated new ScoreAPI UserID: "${allocated_user_id}"`);
+      console.log(`Using ScoreAPI UserID: "${allocated_user_id}", display name: "${player_name}"`);
       cb(allocated_user_id);
 
       if (need_rename && result.display_name) {
@@ -759,12 +759,16 @@ class ScoreSystemImpl<ScoreType> {
 }
 
 
+let need_clear_at_startup = false;
 let all_score_systems: ScoreSystem<any>[] = []; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export function scoreAlloc<ScoreType>(param: ScoreSystemParam<ScoreType>): ScoreSystem<ScoreType> {
   withUserID(nop);
   let ret = new ScoreSystemImpl(param);
   all_score_systems.push(ret);
+  if (need_clear_at_startup) {
+    ret.clearScoreCache();
+  }
   return ret;
 }
 
@@ -831,6 +835,7 @@ export function scoreUpdatePlayerName(new_player_name: string): void {
 }
 
 function scoreClearScoreCache(): void {
+  need_clear_at_startup = true;
   for (let ii = 0; ii < all_score_systems.length; ++ii) {
     all_score_systems[ii].clearScoreCache();
   }

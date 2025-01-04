@@ -1,14 +1,7 @@
 Next:
 
-Check steam implementation of score user provider
-  Use Steam username for scores automatically
-  Cannot cache user Id from Steam in local storage, even if same provider, we might be a new user!
-    Similar for score systems saving of local results / scores, these need to be in the user record, or invalidated upon user ID change
-    Also invalidate player name so playing un-auth'd after playing on Steam doesn't get you your Steam name
-
 Exceptions in unpromisify() are going to neither the error handler nor the uncaught rejection handler!
   Test with referencing unknown function in steamInit
-Submit rename upon Steam username change automatically
 Pipe score system to Steam leaderboards if auth'd
 
 Get a clean flow from client code to greenworks working - https://stackoverflow.com/questions/44391448/electron-require-is-not-defined
