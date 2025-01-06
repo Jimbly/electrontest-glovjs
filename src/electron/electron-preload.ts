@@ -1,15 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { NetErrorCallback } from 'glov/common/types';
-
-// Wraps a callback so that it escapes implicit try/catches from callbacks fired
-//   within Promises.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function unpromisify<P extends any[], T=never>(f: (this: T, ...args: P) => void): (this: T, ...args: P) => void {
-  return function (this: T): void {
-  // eslint-disable-next-line @typescript-eslint/no-invalid-this, prefer-rest-params, @typescript-eslint/no-explicit-any
-    setImmediate((f as any).apply.bind(f, this, arguments));
-  };
-}
+import type { Unpromisified } from 'glov/common/util';
 
 function errorString(e: Error | DataObject | string | unknown) : string {
   let msg = String(e);
@@ -46,8 +37,8 @@ export type SteamInitResponse = {
 };
 
 export type ELectronSteamAPI = {
-  init(cb: NetErrorCallback<SteamInitResponse>): void;
-  getEncryptedAppTicket(content: string, cb: NetErrorCallback<string>): void;
+  init(cb: Unpromisified<NetErrorCallback<SteamInitResponse>>): void;
+  getEncryptedAppTicket(content: string, cb: Unpromisified<NetErrorCallback<string>>): void;
 };
 
 export type ElectonGlovAPI = {
@@ -106,17 +97,23 @@ let api: ElectonGlovAPI = {
     // }
   },
   steam: {
-    init: function (cb: NetErrorCallback<SteamInitResponse>): void {
-      ipcRenderer.invoke('steam-init').then(unpromisify(function (payload: SteamInitResponse) {
+    init: function (cb: Unpromisified<NetErrorCallback<SteamInitResponse>>): void {
+      if (!cb.glov_unpromisified) {
+        console.error('steam.init() expects unpromisified function');
+      }
+      ipcRenderer.invoke('steam-init').then(function (payload: SteamInitResponse) {
         cb(null, payload);
-      }), function (err: unknown) {
+      }, function (err: unknown) {
         cb(errorString(err));
       });
     },
-    getEncryptedAppTicket: function (content: string, cb: NetErrorCallback<string>): void {
-      ipcRenderer.invoke('steam-getEncryptedAppTicket', content).then(unpromisify(function (payload: string) {
+    getEncryptedAppTicket: function (content: string, cb: Unpromisified<NetErrorCallback<string>>): void {
+      if (!cb.glov_unpromisified) {
+        console.error('steam.init() expects unpromisified function');
+      }
+      ipcRenderer.invoke('steam-getEncryptedAppTicket', content).then(function (payload: string) {
         cb(null, payload);
-      }), function (err: unknown) {
+      }, function (err: unknown) {
         cb(errorString(err));
       });
     },

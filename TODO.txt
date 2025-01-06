@@ -1,7 +1,5 @@
 Next:
 
-Exceptions in unpromisify() are going to neither the error handler nor the uncaught rejection handler!
-  Test with referencing unknown function in steamInit
 Pipe score system to Steam leaderboards if auth'd
 
 Get a clean flow from client code to greenworks working - https://stackoverflow.com/questions/44391448/electron-require-is-not-defined

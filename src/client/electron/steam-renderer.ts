@@ -7,7 +7,7 @@ import {
   scoreLSD,
   scoreUserProviderSet,
 } from 'glov/client/score';
-import { callEach } from 'glov/common/util';
+import { callEach, unpromisify } from 'glov/common/util';
 
 import type { SteamInitResponse } from 'electron/electron-preload';
 import type { ErrorCallback, VoidFunc } from 'glov/common/types';
@@ -62,7 +62,7 @@ function steamScoreGetAuthToken(cb: null | ErrorCallback<string | null, string>)
   if (cb) {
     auth_query_in_flight.push(cb);
   }
-  steam_api!.getEncryptedAppTicket('auth', function (err: string | null, ticket?: string): void {
+  steam_api!.getEncryptedAppTicket('auth', unpromisify(function (err: string | null, ticket?: string): void {
     if (err) {
       // If getting an error here, likely Steam is in Offline mode, or is offline
       callEach(auth_query_in_flight, auth_query_in_flight = null, err);
@@ -87,7 +87,7 @@ function steamScoreGetAuthToken(cb: null | ErrorCallback<string | null, string>)
       scoreLSD()[AUTH_CACHE_KEY] = JSON.stringify(auth_cache);
       callEach(auth_query_in_flight, auth_query_in_flight = null, null, res.token);
     });
-  });
+  }));
 }
 
 export function steamInit(next: VoidFunc): void {
@@ -96,7 +96,7 @@ export function steamInit(next: VoidFunc): void {
     return next();
   }
   loadPendingDelta(1);
-  steam_api.init(function (err: string | null, payload?: SteamInitResponse) {
+  steam_api.init(unpromisify(function (err: string | null, payload?: SteamInitResponse) {
     if (err || !payload!.initialized) {
       console.log('[STEAM] Steam failed to initialize', err);
     } else {
@@ -125,5 +125,5 @@ export function steamInit(next: VoidFunc): void {
     }
     loadPendingDelta(-1);
     next();
-  });
+  }));
 }
