@@ -1,6 +1,5 @@
 Next:
 
-build pipeline: how do we add app-defined targets via config.project?  Just allow adding new build targets at configure-time?
 build pipeline: get reasonable sourcemap URL in production bundles (back to localhost:3000 and/or sourcemap server with version)
 crash reports: globalExtra is not showing up in UI (do I need to add something to my server config?)
 Get production build task working

@@ -1,3 +1,4 @@
+const path = require('path');
 const argv = require('minimist')(process.argv.slice(2));
 const exec = require('./exec.js');
 const sourcemapRemap = require('./sourcemap-remap');
@@ -8,6 +9,7 @@ function copy(job, done) {
 }
 
 module.exports = function (config, gb) {
+  gb.addTarget('electron', path.join(__dirname, '../dist/game/build.electron'));
   config.bundles.push({
     entrypoint: 'worker',
     deps: 'worker_deps',

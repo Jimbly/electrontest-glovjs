@@ -43,7 +43,6 @@ process.env.BROWSERSLIST_IGNORE_OLD_DATA = 1;
 
 const targets = {
   dev: path.join(__dirname, '../dist/game/build.dev'),
-  electron: path.join(__dirname, '../dist/game/build.electron'),
   test_server: path.join(__dirname, '../dist/game/build.test/server'),
   test_client: path.join(__dirname, '../dist/game/build.test/client'),
   prod: path.join(__dirname, '../dist/game/build.prod'),
