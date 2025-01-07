@@ -44,65 +44,46 @@ export function greenworksInit(): void {
       log('Cloud enabled: ' + greenworks.isCloudEnabled());
       log('Cloud enabled for user: ' + greenworks.isCloudEnabledForUser());
 
-      greenworks.on('steam-servers-connected', function () {
-        log('connected');
-      });
-      greenworks.on('steam-servers-disconnected', function () {
-        log('disconnected');
-      });
-      greenworks.on('steam-server-connect-failure', function () {
-        log('connected failure');
-      });
-      greenworks.on('steam-shutdown', function () {
-        log('shutdown');
-      });
-
-      // greenworks.saveTextToFile('test_file.txt', 'test_content',
-      //   function () {
-      //     log('Save text to file successfully');
-      //   },
-      //   function (err) {
-      //     log('Failed on saving text to file: ' + err);
-      //   });
-
-      // greenworks.readTextFromFile('test_file.txt', function (message) {
-      //   log('Read text from file successfully.');
-      // }, function (err) {
-      //   log('Failed on reading text from file: ' + err);
+      // if (full_game_id !== steam_init_data.app_id) {
+      //   is_demo = !greenworks.isSubscribedApp(full_game_id);
+      // }
+      // greenworks.on('steam-servers-connected', function () {
+      //   log('connected');
+      // });
+      // greenworks.on('steam-servers-disconnected', function () {
+      //   log('disconnected');
+      // });
+      // greenworks.on('steam-server-connect-failure', function () {
+      //   log('connected failure');
+      // });
+      // greenworks.on('steam-shutdown', function () {
+      //   log('shutdown');
       // });
 
-      greenworks.getCloudQuota(
-        function (a: number, b: number) {
-          log('Cloud quota: ' + a + ',' + b);
-        },
-        function (err: string) {
-          log('Failed on getting cloud quota: ' + err);
-        });
-      // The ACH_WIN_ONE_GAME achievement is available for the sample (id:480) game
-      // greenworks.activateAchievement('ACH_WIN_ONE_GAME',
-      //   function () {
-      //     log('Activating achievement successfully');
+      // greenworks.getCloudQuota(
+      //   function (a: number, b: number) {
+      //     log('Cloud quota: ' + a + ',' + b);
       //   },
-      //   function (err) {
-      //     log('Failed on activating achievement: ' + err);
+      //   function (err: string) {
+      //     log('Failed on getting cloud quota: ' + err);
       //   });
 
-      greenworks.getNumberOfPlayers(
-        function (a: number) {
-          log('Number of players ' + a);
-        },
-        function (err: string) {
-          log('Failed on getting number of players: ' + err);
-        });
+      // greenworks.getNumberOfPlayers(
+      //   function (a: number) {
+      //     log('Number of players ' + a);
+      //   },
+      //   function (err: string) {
+      //     log('Failed on getting number of players: ' + err);
+      //   });
 
-      log('Numer of friends: ' +
-          greenworks.getFriendCount(greenworks.FriendFlags.Immediate));
-      let friends = greenworks.getFriends(greenworks.FriendFlags.Immediate);
-      let friends_names = [];
-      for (let i = 0; i < friends.length; ++i) {
-        friends_names.push(friends[i].getPersonaName());
-      }
-      log('Friends: [' + friends_names.join(',') + ']');
+      // log('Numer of friends: ' +
+      //     greenworks.getFriendCount(greenworks.FriendFlags.Immediate));
+      // let friends = greenworks.getFriends(greenworks.FriendFlags.Immediate);
+      // let friends_names = [];
+      // for (let i = 0; i < friends.length; ++i) {
+      //   friends_names.push(friends[i].getPersonaName());
+      // }
+      // log('Friends: [' + friends_names.join(',') + ']');
     }
   } catch (e) {
     console.log(e);
