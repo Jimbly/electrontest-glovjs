@@ -34,6 +34,10 @@ export function mainWindow(): BrowserWindow {
   return win;
 }
 
+function debug(msg: string): void {
+  console.debug(`[ElectronLifecycle] ${msg}`);
+}
+
 function toggleFullScreen(): void {
   let new_fullscreen = !win.isFullScreen();
   win.setFullScreen(new_fullscreen);
@@ -112,4 +116,49 @@ app.whenReady().then(function () {
 app.on('window-all-closed', function () {
   //if (process.platform !== 'darwin')
   app.quit();
+});
+
+app.on('render-process-gone', function () {
+  // hard crash in render thread, just exit, crash report will have been sent
+  app.quit();
+});
+
+[
+  'ready',
+  'window-all-closed',
+  'before-quit',
+  'will-quit',
+  'quit',
+  'open-file',
+  'open-url',
+  'activate',
+  'did-become-active',
+  'did-resign-active',
+  'continue-activity',
+  'will-continue-activity',
+  'continue-activity-error',
+  'activity-was-continued',
+  'update-activity-state',
+  'new-window-for-tab',
+  // 'browser-window-blur',
+  // 'browser-window-focus',
+  'browser-window-created',
+  'web-contents-created',
+  'certificate-error',
+  'select-client-certificate',
+  'login',
+  'gpu-info-update',
+  'render-process-gone',
+  'child-process-gone',
+  'accessibility-support-changed',
+  'session-created',
+  'second-instance',
+].forEach(function (msg) {
+  app.on(msg as 'ready', function (param: unknown) {
+    let text = msg;
+    if (param !== undefined && !(param && typeof param === 'object')) {
+      text += `(${param})`;
+    }
+    debug(text);
+  });
 });

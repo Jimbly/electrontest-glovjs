@@ -127,4 +127,46 @@ export function steamInit(): void {
       });
     });
   });
+
+  ipcMain.handle('steam-setRichPresence', function (event: IpcMainInvokeEvent, key: string, value: string) {
+    greenworks!.setRichPresence(key, value);
+  });
+  ipcMain.handle('steam-clearRichPresence', function (event: IpcMainInvokeEvent) {
+    greenworks!.clearRichPresence();
+  });
+
+  function nop(): void {
+    // nothing
+  }
+  function logError(api: string, err: unknown): void {
+    log(`Error calling "${api}": ${err}`);
+  }
+  ipcMain.handle('steam-activateAchievement', function (event: IpcMainInvokeEvent, api_name: string) {
+    greenworks!.activateAchievement(api_name, nop, logError.bind(null, 'activateAchievement'));
+  });
+  ipcMain.handle('steam-clearAchievement', function (event: IpcMainInvokeEvent, api_name: string) {
+    greenworks!.clearAchievement(api_name, nop, logError.bind(null, 'clearAchievement'));
+  });
+  ipcMain.handle('steam-indicateAchievementProgress', function (
+    event: IpcMainInvokeEvent, api_name: string, cur: number, max: number
+  ) {
+    greenworks!.indicateAchievementProgress(api_name, cur, max);
+  });
+  ipcMain.handle('steam-getAchievement', function (event: IpcMainInvokeEvent, api_name: string) {
+    return new Promise(function (resolve, reject) {
+      greenworks!.getAchievement(api_name, resolve, reject);
+    });
+  });
+  ipcMain.handle('steam-getAchievementNames', function (event: IpcMainInvokeEvent) {
+    return Promise.resolve(greenworks!.getAchievementNames());
+  });
+  ipcMain.handle('steam-getStatInt', function (event: IpcMainInvokeEvent, stat_name: string) {
+    return Promise.resolve(greenworks!.getStatInt(stat_name));
+  });
+  ipcMain.handle('steam-setStat', function (event: IpcMainInvokeEvent, stat_name: string, value: number) {
+    greenworks!.setStat(stat_name, value);
+  });
+  ipcMain.handle('steam-storeStats', function (event: IpcMainInvokeEvent) {
+    greenworks!.storeStats(nop, logError.bind(null, 'storeStats'));
+  });
 }

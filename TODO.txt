@@ -1,24 +1,5 @@
 Next:
 
-Pipe score system to Steam leaderboards if auth'd
-
-Get a clean flow from client code to greenworks working - https://stackoverflow.com/questions/44391448/electron-require-is-not-defined
-  Desired Steam API:
-    steamInited(): boolean (sync, needed during startup code?)
-      also some kind of ownership check for demo logic?
-    steamGetSteamID(): string | null (or, async query can be used in scores system?)
-    steamGetDisplayName(): string | null
-    steamSetRichPresence(status: string | null)
-    void steamSetAchievement(const char *api_name, bool unlocked);
-    U64 steamGetAchievement(const char *api_name); // returns timestamp or 0
-    void steamShowAchievementProgress(const char *api_name, U32 cur, U32 max);
-    void steamSetStat(const char *api_name, int value);
-    int steamGetStat(const char *api_name);
-    also something to auth with the server?
-      steam ID + auth -> (private) user id for future communication?
-    steamAvatarForAccount() - needs to hook onPersonaStateChanged()
-
-add fix for insecure content warning, ensure scores, reports, errors, etc still work
 build pipeline: how do we add app-defined targets via config.project?  Just allow adding new build targets at configure-time?
 build pipeline: get reasonable sourcemap URL in production bundles (back to localhost:3000 and/or sourcemap server with version)
 crash reports: globalExtra is not showing up in UI (do I need to add something to my server config?)
@@ -31,5 +12,13 @@ Add a steam/electron platform if we need some special behavior?
   Probably we just have a "isSteam()" run-time query?
 Renderer crash is not exiting the app gracefully / showing any status
 Icons: https://www.electronforge.io/guides/create-and-add-icons
-Error reporting for JavaScript errors in the main thread (and preload code?)
+Error reporting for JavaScript errors in the main thread (and preload code?) - error kind makes it to renderer, but doesn't make it to our uncaught exception handler
 Figure out why electron is blocking async typescript (maybe only happens before changing electron-dev to not depend on TypeScript?)
+
+Maybe later:
+  steamAvatarForAccount() - needs to hook onPersonaStateChanged()
+
+Notes:
+  Steam init fails if either Steam is not running, or it is but you don't own the product
+    Steam in offline mode works fine, but do not get encrypted app tickets for high score submission
+  To be DRM-free, we want this behavior to be _different_ than running the demo, and sure the demo does not fall back into the full game if Steam isn't running!

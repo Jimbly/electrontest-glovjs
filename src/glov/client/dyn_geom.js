@@ -10,7 +10,6 @@ export const FACE_CAMERA = 1<<3;
 export const FACE_DEFAULT = FACE_XY|FACE_FRUSTUM;
 export const FACE_CUSTOM = 1<<4;
 
-
 const DYN_VERT_SIZE = 4*3;
 const MAX_VERT_ELEM_COUNT = 65532 * DYN_VERT_SIZE; // strictly less than 65536, as index 65535 is special in WebGL2
 

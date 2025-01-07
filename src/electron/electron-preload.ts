@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import type { Unpromisified } from 'client/electron/steam-renderer';
 import type { NetErrorCallback } from 'glov/common/types';
-import type { Unpromisified } from 'glov/common/util';
 
 function errorString(e: Error | DataObject | string | unknown) : string {
   let msg = String(e);
@@ -39,6 +39,16 @@ export type SteamInitResponse = {
 export type ELectronSteamAPI = {
   init(cb: Unpromisified<NetErrorCallback<SteamInitResponse>>): void;
   getEncryptedAppTicket(content: string, cb: Unpromisified<NetErrorCallback<string>>): void;
+  setRichPresence(key: string, value: string | null): void;
+  clearRichPresence(): void;
+  activateAchievement(api_name: string): void;
+  clearAchievement(api_name: string): void;
+  indicateAchievementProgress(api_name: string, cur: number, max: number): void;
+  getAchievement(api_name: string, cb: Unpromisified<NetErrorCallback<boolean>>): void;
+  getAchievementNames(cb: Unpromisified<NetErrorCallback<string[]>>): void;
+  getStatInt(stat_name: string, cb: Unpromisified<NetErrorCallback<number>>): void;
+  setStat(stat_name: string, value: number): void;
+  storeStats(): void;
 };
 
 export type ElectonGlovAPI = {
@@ -79,6 +89,16 @@ contextBridge.exposeInMainWorld('myapi', {
   },
 });
 
+function invokeToCb<T>(p: Promise<T>, cb: Unpromisified<NetErrorCallback<T>>): void {
+  if (!cb.unpromisified) {
+    console.error('steam API requires electronUnpromisified function');
+  }
+  p.then(function (payload: T) {
+    cb.f(null, payload);
+  }, function (err: unknown) {
+    cb.f(errorString(err));
+  });
+}
 let api: ElectonGlovAPI = {
   storage: {
     getAll: function () {
@@ -98,24 +118,40 @@ let api: ElectonGlovAPI = {
   },
   steam: {
     init: function (cb: Unpromisified<NetErrorCallback<SteamInitResponse>>): void {
-      if (!cb.glov_unpromisified) {
-        console.error('steam.init() expects unpromisified function');
-      }
-      ipcRenderer.invoke('steam-init').then(function (payload: SteamInitResponse) {
-        cb(null, payload);
-      }, function (err: unknown) {
-        cb(errorString(err));
-      });
+      invokeToCb(ipcRenderer.invoke('steam-init'), cb);
     },
     getEncryptedAppTicket: function (content: string, cb: Unpromisified<NetErrorCallback<string>>): void {
-      if (!cb.glov_unpromisified) {
-        console.error('steam.init() expects unpromisified function');
-      }
-      ipcRenderer.invoke('steam-getEncryptedAppTicket', content).then(function (payload: string) {
-        cb(null, payload);
-      }, function (err: unknown) {
-        cb(errorString(err));
-      });
+      invokeToCb(ipcRenderer.invoke('steam-getEncryptedAppTicket', content), cb);
+    },
+    setRichPresence(key: string, value: string | null): void {
+      ipcRenderer.invoke('steam-setRichPresence', key, value || '');
+    },
+    clearRichPresence(): void {
+      ipcRenderer.invoke('steam-clearRichPresence');
+    },
+    activateAchievement(api_name: string): void {
+      ipcRenderer.invoke('steam-activateAchievement', api_name);
+    },
+    clearAchievement(api_name: string): void {
+      ipcRenderer.invoke('steam-clearAchievement', api_name);
+    },
+    indicateAchievementProgress(api_name: string, cur: number, max: number): void {
+      ipcRenderer.invoke('steam-indicateAchievementProgress', api_name, cur, max);
+    },
+    getAchievement(api_name: string, cb: Unpromisified<NetErrorCallback<boolean>>): void {
+      invokeToCb(ipcRenderer.invoke('steam-getAchievement', api_name), cb);
+    },
+    getAchievementNames(cb: Unpromisified<NetErrorCallback<string[]>>): void {
+      invokeToCb(ipcRenderer.invoke('steam-getAchievementNames'), cb);
+    },
+    getStatInt(stat_name: string, cb: Unpromisified<NetErrorCallback<number>>): void {
+      invokeToCb(ipcRenderer.invoke('steam-getStatInt', stat_name), cb);
+    },
+    setStat(stat_name: string, value: number): void {
+      ipcRenderer.invoke('steam-setStat', stat_name, value);
+    },
+    storeStats(): void {
+      ipcRenderer.invoke('steam-storeStats');
     },
   },
 };

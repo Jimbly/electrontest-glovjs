@@ -639,19 +639,16 @@ export function callbackify(f: (...args: any[]) => Promise<unknown>): (...args: 
   };
 }
 
-export type Unpromisified<F> = F & { glov_unpromisified: true };
 // Wraps a callback so that it escapes implicit try/catches from callbacks fired
 //   within Promises.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function unpromisify<P extends any[], T=never>(
   f: (this: T, ...args: P) => void
-): Unpromisified<(this: T, ...args: P) => void> {
-  function ret(this: T): void {
+): (this: T, ...args: P) => void {
+  return function ret(this: T): void {
   // eslint-disable-next-line @typescript-eslint/no-invalid-this, prefer-rest-params, @typescript-eslint/no-explicit-any
     nextTick((f as any).apply.bind(f, this, arguments));
-  }
-  ret.glov_unpromisified = true;
-  return ret as Unpromisified<(this: T, ...args: P) => void>;
+  };
 }
 
 export function msToSS2020(milliseconds: number): number {
