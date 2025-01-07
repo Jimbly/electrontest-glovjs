@@ -18,8 +18,8 @@
 
     "electron-start": "nodemon -w build -- build electron-start-dev --watch",
     "electron-package-dev": "nodemon -w build -- build electron-package-dev --watch",
-    "old-electron-package-dev": "node build build_deps && electron-forge package dist/game/build.dev",
-    "old-electron-package-prod": "node build build && electron-forge package dist/game/build.prod",
+    "electron-package-prod": "node build electron-package-prod",
+    "electron-package-prod-watch": "nodemon -w build -- build electron-package-prod --watch",
     "old-electron-make": "node build build && electron-forge make dist/game/build.prod"
   },
   "author": "Jimb Esser (https://github.com/Jimbly)",

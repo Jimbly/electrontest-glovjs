@@ -69,6 +69,25 @@ module.exports = function (config, gb) {
     func: copy,
   });
   gb.task({
+    name: 'electron-from-prod',
+    input: [
+      'prod.posthash:**',
+    ],
+    type: gb.SINGLE,
+    func: function (job, done) {
+      let file = job.getFile();
+      let { relative } = file;
+      if (!relative.endsWith('.js')) {
+        job.out(file);
+        return void done();
+      }
+      sourcemapRemap(function (job2, filename, next) {
+        filename = filename.replace(/^https?:\/\/localhost(?::\d+)?\/sourcemap\/auto\/\d+\//, '../../../artifacts/client/');
+        next(null, filename);
+      }).func(job, done);
+    },
+  });
+  gb.task({
     name: 'electron-bundles',
     input: [
       'client_dev_outputs:**/*.bundle.js',
@@ -134,8 +153,7 @@ module.exports = function (config, gb) {
     deps: ['electron-npm-install'],
     input: [
       'electron-to-root:**',
-      'server_dev_outputs:electron/**',
-      'electron-from-dev:client/**',
+      'electron-from-dev:**',
       'electron-bundles:**',
     ],
     ...exec(forge([
@@ -159,8 +177,7 @@ module.exports = function (config, gb) {
     deps: ['electron-npm-install'],
     input: [
       'electron-to-root:**',
-      'server_dev_outputs:electron/**',
-      'electron-from-dev:client/**',
+      'electron-from-dev:**',
       'electron-bundles:**',
     ],
     ...exec({
@@ -175,4 +192,29 @@ module.exports = function (config, gb) {
   // TODO: electron-package-prod - does similar as all of above (also a
   //   electron-start-prod for testing?) but with prod output files, and also
   //   has build_deps as a dep so it errors if TypeScript/eslint fails
+
+  gb.task({
+    name: 'electron-package-prod',
+    deps: [
+      'electron-npm-install',
+      'build_deps', // so that a TypeScript/eslint failure fails the build
+    ],
+    input: [
+      'electron-to-root:**',
+      'electron-from-dev:**',
+      'electron-from-prod:client/**',
+      //'electron-bundles:**',
+    ],
+    ...exec({
+      ...forge([
+        'package',
+        '--',
+        '--production',
+        'electron-from-prod:client',
+      ]),
+      await: true,
+      do_versioning: true,
+    }),
+  });
+
 };

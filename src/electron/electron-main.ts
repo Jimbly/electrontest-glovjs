@@ -1,3 +1,4 @@
+import assert from 'assert';
 import path from 'node:path';
 import { crashReporter } from 'electron';
 import {
@@ -16,7 +17,7 @@ import { steamInit } from './steam-main';
 
 app.commandLine.appendSwitch('--in-process-gpu', '--disable-direct-composition');
 
-const production_mode: boolean = app.isPackaged;
+const production_mode: boolean = app.getAppPath().includes('app.asar'); // app.isPackaged;
 const allow_devtools = process.argv.includes('--devtools') || !production_mode;
 crashReporter.start({
   submitURL: `http://error.${production_mode ? '' : 'staging.'}dashingstrike.com/crashreports`,
@@ -34,17 +35,14 @@ crashReporter.start({
 electronStorageInit();
 steamInit();
 
-let win: BrowserWindow;
-
-export function mainWindow(): BrowserWindow {
-  return win;
-}
+let win: BrowserWindow | null = null;
 
 function debug(msg: string): void {
   console.debug(`[ElectronLifecycle] ${msg}`);
 }
 
 function toggleFullScreen(): void {
+  assert(win);
   let new_fullscreen = !win.isFullScreen();
   win.setFullScreen(new_fullscreen);
   electronStorageSetJSON('settings-device.json', 'fullscreen', new_fullscreen);
@@ -70,6 +68,7 @@ function createWindow(): void {
     // titleBarStyle: 'hidden',
     // titleBarOverlay: true,
   });
+  debug('Created window');
   win.setAspectRatio(1920/1080);
   win.removeMenu(); // Maybe better than Menu.setApplicationMenu on Mac?
   win.loadFile(path.join(__dirname, '../client/index.html'), {
@@ -80,6 +79,9 @@ function createWindow(): void {
   }
 
   win.webContents.on('before-input-event', function (unused, input) {
+    if (!win) {
+      return;
+    }
     if (input.type === 'keyDown') {
       let key = input.key.toUpperCase();
       if (key === 'F12' ||
@@ -96,6 +98,9 @@ function createWindow(): void {
       }
     }
   });
+  win.on('close', function () {
+    win = null;
+  });
 }
 
 app.whenReady().then(function () {
@@ -103,6 +108,7 @@ app.whenReady().then(function () {
     ipcMain.handle('ping', () => 'pong');
     ipcMain.handle('fullscreen-toggle', toggleFullScreen);
     ipcMain.handle('open-devtools', function () {
+      assert(win);
       win.webContents.openDevTools();
     });
     ipcMain.handle('crash-main', process.crash.bind(process));
@@ -117,10 +123,27 @@ app.whenReady().then(function () {
     });
   });
 });
-
+app.on('before-quit', function () {
+  // unsure if this helps, but trying to track why electron processes are not exiting
+  win?.close();
+  if (production_mode) {
+    // Just to be safe, make *sure* the process exits
+    // Note: doesn't seem to help
+    setTimeout(function () {
+      debug('calling app.exit()');
+      app.exit();
+    }, 5000);
+  }
+});
 app.on('window-all-closed', function () {
+  debug('In my window-all-closed handler');
   //if (process.platform !== 'darwin')
   app.quit();
+  // if (production_mode) { // Maybe want this
+  //   debug('calling app.exit() directly');
+  //   app.exit();
+  // }
+  debug('Exiting my window-all-closed handler');
 });
 
 app.on('render-process-gone', function () {
