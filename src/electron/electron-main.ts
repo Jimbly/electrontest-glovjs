@@ -16,12 +16,18 @@ import { steamInit } from './steam-main';
 
 app.commandLine.appendSwitch('--in-process-gpu', '--disable-direct-composition');
 
+const production_mode: boolean = app.isPackaged;
+const allow_devtools = process.argv.includes('--devtools') || !production_mode;
 crashReporter.start({
-  // productName: 'todo', // defaults to app.name, is that appropriate?
-  submitURL: 'http://error.staging.dashingstrike.com/crashreports',
+  submitURL: `http://error.${production_mode ? '' : 'staging.'}dashingstrike.com/crashreports`,
   ignoreSystemCrashHandler: true,
   globalExtra: {
-    foo: 'bar',
+    product: app.name, // otherwise gets "Electron"
+    version: app.getVersion(), // otherwise gets Electron version
+    ver_electron: process.versions.electron,
+    ver_chrome: process.versions.chrome,
+    ver_node: process.versions.node,
+    ver_v8: process.versions.v8,
   },
 });
 
@@ -45,8 +51,7 @@ function toggleFullScreen(): void {
 }
 
 function createWindow(): void {
-  const production_mode = app.isPackaged;
-  let default_fullscreen = false; // TODO: default to this in production mode
+  let default_fullscreen = production_mode;
   let fullscreen = electronStorageGetJSON('settings-device.json', 'fullscreen', default_fullscreen);
   win = new BrowserWindow({
     width: 1280,
@@ -58,7 +63,7 @@ function createWindow(): void {
       autoplayPolicy: 'no-user-gesture-required',
       // webSecurity: true, // maybe?
       // allowRunningInsecureContent: true, // maybe?
-      // devTools: false, // TODO: default to this in production mode
+      devTools: allow_devtools,
     },
     fullscreen,
     // Reasonable to try:
@@ -70,18 +75,18 @@ function createWindow(): void {
   win.loadFile(path.join(__dirname, '../client/index.html'), {
     query: production_mode ? {} : { electrondebug: '1' },
   });
-  win.webContents.openDevTools(); // TODO: only in dev mode
+  if (!production_mode) {
+    win.webContents.openDevTools();
+  }
 
   win.webContents.on('before-input-event', function (unused, input) {
     if (input.type === 'keyDown') {
-      // console.log('!!!!', input);
       let key = input.key.toUpperCase();
-      // TODO: only in dev mode or with command argument, or maybe above logic handles that?
       if (key === 'F12' ||
         (input.control && input.shift && key === 'I') ||
         (input.meta && input.alt && key === 'I')
       ) {
-        win.webContents.toggleDevTools();
+        win.webContents.toggleDevTools(); // note: ignored if `allow_devtools` is not true above
       }
       if (
         !input.shift && !input.control && input.alt && key === 'ENTER' ||

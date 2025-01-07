@@ -1,21 +1,20 @@
 Next:
 
-build pipeline: get reasonable sourcemap URL in production bundles (back to localhost:3000 and/or sourcemap server with version)
-crash reports: globalExtra is not showing up in UI (do I need to add something to my server config?)
 Get production build task working
   Any way to have only a single npm install folder?  How big? Big!
     Special Forge config flow that simply replaces files in the after copy step or something?
   Will _also_ need a demo build task, or can Demos ask Steam if they're the demo / check if they're owned?
   electron-package-dev right now is running as production mode, should be dev (just don't package the asar?)
+build pipeline: get reasonable sourcemap URL in production bundles (back to localhost:3000 and/or sourcemap server with version)
 Add a steam/electron platform if we need some special behavior?
   Probably we just have a "isSteam()" run-time query?
-Renderer crash is not exiting the app gracefully / showing any status
 Icons: https://www.electronforge.io/guides/create-and-add-icons
 Error reporting for JavaScript errors in the main thread (and preload code?) - error kind makes it to renderer, but doesn't make it to our uncaught exception handler
 Figure out why electron is blocking async typescript (maybe only happens before changing electron-dev to not depend on TypeScript?)
 
 Maybe later:
   steamAvatarForAccount() - needs to hook onPersonaStateChanged()
+  crash reports: get error report details into crash reports - need to call crashReporter.addExtraParameter() in _each_ process
 
 Notes:
   Steam init fails if either Steam is not running, or it is but you don't own the product
