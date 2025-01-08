@@ -1,13 +1,16 @@
 Next:
 
-Error reporting for JavaScript errors in the main thread (and preload code?) - error kind makes it to renderer, but doesn't make it to our uncaught exception handler
 Figure out why electron is blocking async typescript (maybe only happens before changing electron-dev to not depend on TypeScript?)
 Icons: https://www.electronforge.io/guides/create-and-add-icons
+
+Merge back to glov
+Try in real project
 
 Maybe later:
   might need a steamActive() query function?
   steamAvatarForAccount() - needs to hook onPersonaStateChanged()
   crash reports: get error report details into crash reports - need to call crashReporter.addExtraParameter() in _each_ process
+  use dialog.showErrorBox upon hard crash in renderer thread or similar things?
 
 Notes:
   Steam init fails if either Steam is not running, or it is but you don't own the product

@@ -9,6 +9,7 @@ import {
 } from 'glov/client/score';
 import { platformOverrideParameter } from 'glov/common/platform';
 import { callEach, unpromisify as utilUnpromisify } from 'glov/common/util';
+import './electron_debug'; // for command registration
 
 import type { SteamInitResponse } from 'electron/electron-preload';
 import type { ErrorCallback, TSMap, VoidFunc } from 'glov/common/types';

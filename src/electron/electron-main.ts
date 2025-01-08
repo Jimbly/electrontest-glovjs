@@ -14,6 +14,7 @@ import {
   electronStorageWhenReady
 } from './electron_storage-main';
 import { steamInit } from './steam-main';
+import type { CrashParam } from './electron-preload';
 
 app.commandLine.appendSwitch('--in-process-gpu', '--disable-direct-composition');
 
@@ -49,7 +50,7 @@ function toggleFullScreen(): void {
 }
 
 function createWindow(): void {
-  let default_fullscreen = production_mode;
+  let default_fullscreen = production_mode && !allow_devtools;
   let fullscreen = electronStorageGetJSON('settings-device.json', 'fullscreen', default_fullscreen);
   win = new BrowserWindow({
     width: 1280,
@@ -57,6 +58,7 @@ function createWindow(): void {
     minWidth: 280,
     minHeight: 180,
     webPreferences: {
+      sandbox: false, // Required to get error stacks between processes
       preload: path.join(__dirname, 'electron-preload.js'),
       autoplayPolicy: 'no-user-gesture-required',
       // webSecurity: true, // maybe?
@@ -111,7 +113,25 @@ app.whenReady().then(function () {
       assert(win);
       win.webContents.openDevTools();
     });
-    ipcMain.handle('crash-main', process.crash.bind(process));
+    function crashSoft(): void {
+      let a = null! as { b: { c: number } };
+      a.b.c++;
+    }
+    function rejectSoft(): void {
+      // eslint-disable-next-line no-new
+      new Promise<null>(function (resolve, reject) {
+        reject(new Error());
+      });
+    }
+    ipcMain.handle('crash_main_now', crashSoft);
+    ipcMain.handle('crash_main_later', function () {
+      setTimeout(crashSoft, 100);
+    });
+    ipcMain.handle('reject_main_now', rejectSoft);
+    ipcMain.handle('reject_main_later', function () {
+      setTimeout(rejectSoft, 100);
+    });
+    ipcMain.handle('crash_main_hard', process.crash.bind(process));
     // Menu.setApplicationMenu(null);
     createWindow();
 
@@ -128,7 +148,7 @@ app.on('before-quit', function () {
   win?.close();
   if (production_mode) {
     // Just to be safe, make *sure* the process exits
-    // Note: doesn't seem to help
+    // Note: doesn't seem to ever get called
     setTimeout(function () {
       debug('calling app.exit()');
       app.exit();
@@ -139,10 +159,10 @@ app.on('window-all-closed', function () {
   debug('In my window-all-closed handler');
   //if (process.platform !== 'darwin')
   app.quit();
-  // if (production_mode) { // Maybe want this
-  //   debug('calling app.exit() directly');
-  //   app.exit();
-  // }
+  if (production_mode) { // Maybe want this
+    debug('calling app.exit() directly');
+    app.exit();
+  }
   debug('Exiting my window-all-closed handler');
 });
 
@@ -189,4 +209,27 @@ app.on('render-process-gone', function () {
     }
     debug(text);
   });
+});
+
+function handleError(type: string, error: Error | null | Record<string, unknown> | undefined): void {
+  let param: CrashParam = {
+    msg: `${type}: ${String(error)}`,
+    // file: error.filename || null,
+    // line: error.lineno || null,
+    // col: error.colno || null,
+    error: {
+      stack: String(error?.stack) || String(error),
+      from: 'main',
+    },
+  };
+  win?.webContents.send('crash-msg', param);
+}
+process.on('uncaughtException', function (error) {
+  console.log('main: received uncaughtException', error);
+  handleError('uncaught exception', error);
+});
+
+process.on('unhandledRejection', function (error) {
+  console.log('main: received unhandledRejection', error);
+  handleError('unhandled rejection', error);
 });

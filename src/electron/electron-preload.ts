@@ -51,13 +51,28 @@ export type ELectronSteamAPI = {
   storeStats(): void;
 };
 
+type Timeout = ReturnType<typeof setTimeout>;
+export type ElectronCrashAPI = {
+  onError(cb: (param: CrashParam) => void): void;
+  handlers: Partial<Record<string,
+    (() => void) |
+    (() => Promise<unknown>) |
+    (() => Timeout)
+  >>;
+};
+
 export type ElectonGlovAPI = {
   storage: ELectronStorage;
   steam: ELectronSteamAPI;
+  crash: ElectronCrashAPI;
 };
 
 declare global {
   interface Window {
+    elapi?: {
+      fullscreenToggle(): void;
+      openDevTools(): void;
+    };
     glov_electron?: ElectonGlovAPI;
   }
 }
@@ -74,18 +89,111 @@ contextBridge.exposeInMainWorld('versions', {
 
 contextBridge.exposeInMainWorld('conf_platform', 'electron');
 
-contextBridge.exposeInMainWorld('myapi', {
+function crashSoft(): void {
+  let a = null! as { b: { c: number } };
+  a.b.c++;
+}
+function rejectSoft(): Promise<null> {
+  return new Promise<null>(function (resolve, reject) {
+    reject(new Error());
+  });
+}
+
+export type CrashParam = {
+  msg: string;
+  file?: string | null;
+  line?: number | null;
+  col?: number | null;
+  error: {
+    stack?: string;
+  } & Partial<Record<string, unknown>>;
+};
+let crash_handler: null | ((param: CrashParam) => void) = null;
+let early_crash: CrashParam | null = null;
+function handleCrash(param: CrashParam): void {
+  if (crash_handler) {
+    crash_handler(param);
+  } else if (!early_crash) {
+    early_crash = param;
+  }
+}
+ipcRenderer.on('crash-msg', function (event, payload) {
+  handleCrash(payload);
+});
+let crash_api: ElectronCrashAPI = {
+  onError: function (cb: (param: CrashParam) => void) {
+    crash_handler = cb;
+    if (early_crash) {
+      cb(early_crash);
+      early_crash = null;
+    }
+  },
+  handlers: {
+    crash_preload_hard: process.crash.bind(process),
+
+    crash_preload_now: function () {
+      crashSoft();
+    },
+    crash_preload_later: function () {
+      setTimeout(crashSoft, 100);
+    },
+    reject_preload_now: function () {
+      rejectSoft();
+    },
+    reject_preload_later: function () {
+      setTimeout(rejectSoft, 100);
+    },
+
+    crash_preload_now_ret: crashSoft,
+    crash_preload_later_ret: setTimeout.bind(null, crashSoft, 100),
+    reject_preload_now_ret: rejectSoft,
+    reject_preload_later_ret: function () {
+      return new Promise(function (resolve, reject) {
+        setTimeout(function () {
+          reject(new Error());
+        }, 100);
+      });
+    },
+
+    crash_main_now: function () {
+      ipcRenderer.invoke('crash_main_now');
+    },
+    crash_main_later: function () {
+      ipcRenderer.invoke('crash_main_later');
+    },
+    reject_main_now: function () {
+      ipcRenderer.invoke('reject_main_now');
+    },
+    reject_main_later: function () {
+      ipcRenderer.invoke('reject_main_later');
+    },
+
+    crash_main_now_ret: function () {
+      return ipcRenderer.invoke('crash_main_now');
+    },
+    crash_main_later_ret: function () {
+      return ipcRenderer.invoke('crash_main_later');
+    },
+    reject_main_now_ret: function () {
+      return ipcRenderer.invoke('reject_main_now');
+    },
+    reject_main_later_ret: function () {
+      return ipcRenderer.invoke('reject_main_later');
+    },
+
+    crash_main_hard: function () {
+      ipcRenderer.invoke('crash_main_hard');
+    },
+  },
+};
+
+
+contextBridge.exposeInMainWorld('elapi', {
   fullscreenToggle: function () {
     ipcRenderer.invoke('fullscreen-toggle');
   },
   openDevTools: function () {
     ipcRenderer.invoke('open-devtools');
-  },
-  crash: function () {
-    process.crash();
-  },
-  crashMain: function () {
-    ipcRenderer.invoke('crash-main');
   },
 });
 
@@ -154,5 +262,36 @@ let api: ElectonGlovAPI = {
       ipcRenderer.invoke('steam-storeStats');
     },
   },
+  crash: crash_api,
 };
 contextBridge.exposeInMainWorld('glov_electron', api);
+
+window.addEventListener('error', function (event) {
+  console.log('preload: received error event', event);
+  handleCrash({
+    msg: event.error ? String(event.error) : event.message,
+    file: event.filename,
+    line: event.lineno,
+    col: event.colno,
+    error: {
+      stack: event.error?.stack || undefined,
+      from: 'preload',
+    },
+  });
+});
+
+window.addEventListener('unhandledrejection', function (event) {
+  console.log('preload: received unhandledrejection event', event);
+  let errorobj = event.reason;
+  if (!errorobj || typeof errorobj !== 'object') {
+    errorobj = { stack: errorobj };
+  }
+  handleCrash({
+    msg: String(event.reason),
+    error: {
+      stack: errorobj.stack,
+      errortype: event.type,
+      from: 'preload',
+    },
+  });
+});
