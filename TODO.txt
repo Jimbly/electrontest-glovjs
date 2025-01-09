@@ -1,7 +1,5 @@
 Next:
 
-Icons: https://www.electronforge.io/guides/create-and-add-icons
-
 Merge back to glov
 Try in real project
 

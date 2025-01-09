@@ -83,6 +83,7 @@ if (is_production) {
 module.exports = {
   outDir: is_production ? 'package-prod' : 'package-dev',
   packagerConfig: {
+    icon: 'client/favicon',
     asar: do_asar ? {
       // This is similar to `@electron-forge/plugin-auto-unpack-natives`, but also include DLLs, etc
       unpack: `{${UNPACK_EXTS.map((ext) => `**/*${ext}`).join(',')}}`,

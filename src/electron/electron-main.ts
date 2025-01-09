@@ -57,6 +57,7 @@ function createWindow(): void {
     height: 720,
     minWidth: 280,
     minHeight: 180,
+    icon: '../client/favicon.png',
     webPreferences: {
       sandbox: false, // Required to get error stacks between processes
       preload: path.join(__dirname, 'electron-preload.js'),
