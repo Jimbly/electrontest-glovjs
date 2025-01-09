@@ -1,7 +1,7 @@
 {
   "name": "electrontest-glovjs",
   "version": "1.0.0",
-  "main": "dist/game/build.prod/server/index.js",
+  "main": "server/index.js",
   "repository": {
     "type": "git",
     "url": "git@github.com:Jimbly/electrontest-glovjs.git"

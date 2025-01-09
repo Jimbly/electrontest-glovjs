@@ -1,8 +1,5 @@
 Next:
 
-Merge back to glov
-Try in real project
-
 Maybe later:
   might need a steamActive() query function?
   steamAvatarForAccount() - needs to hook onPersonaStateChanged()
