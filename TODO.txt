@@ -1,6 +1,5 @@
 Next:
 
-Figure out why electron is blocking async typescript (maybe only happens before changing electron-dev to not depend on TypeScript?)
 Icons: https://www.electronforge.io/guides/create-and-add-icons
 
 Merge back to glov

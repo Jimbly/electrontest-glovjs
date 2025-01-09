@@ -133,7 +133,7 @@ module.exports = function (config, gb) {
         '--no-audit',
         '--no-save',
       ],
-      stdio: 'inherit',
+      stdio: ['ignore', 'inherit', 'inherit'],
       shell: true,
       do_versioning: true,
     }),
@@ -145,7 +145,7 @@ module.exports = function (config, gb) {
       args: [
         'node_modules/@electron-forge/cli/dist/electron-forge.js',
       ].concat(args),
-      stdio: 'inherit',
+      stdio: ['ignore', 'inherit', 'inherit'],
     };
   }
   gb.task({
@@ -159,7 +159,7 @@ module.exports = function (config, gb) {
     ...exec(forge([
       'start',
       // '--enable-logging',
-      '--inspect-electron',
+      // '--inspect-electron',
       // '--inspect-brk-electron',
     ].concat(argv.steam === false ? ['--', '--no-steam'] : []))),
   });
